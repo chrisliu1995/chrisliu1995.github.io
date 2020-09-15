@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//unpkg.com/@fortawesome/fontawesome-free@5.14.0/css/all.min.css">
+  <link rel="stylesheet" href="//unpkg.com/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"8.0.0-rc.5","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}};
+  </script>
+
+  <meta name="description" content="热迁移，也叫在线迁移（live migration），是虚拟机从一台主机上迁移到另一台主机上但是“不中断VM服务”的一种机制。这里“不中断”指的是在用户观感上，VM一直提供服务。而实际上，在热迁移的过程中，VM会短暂地暂停一段时间。 openstack的热迁移是nova组件调用libvirtd完成的。我们一般通过nova配置文件（path：&#x2F;etc&#x2F;nova&#x2F;nova.conf）来设置有关热迁移的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="详解openstack下热迁移机制">
+<meta property="og:url" content="http://yoursite.com/2018/10/22/%E8%AF%A6%E8%A7%A3openstack%E4%B8%8B%E7%83%AD%E8%BF%81%E7%A7%BB%E6%9C%BA%E5%88%B6/index.html">
+<meta property="og:site_name" content="Chris&#39; blog">
+<meta property="og:description" content="热迁移，也叫在线迁移（live migration），是虚拟机从一台主机上迁移到另一台主机上但是“不中断VM服务”的一种机制。这里“不中断”指的是在用户观感上，VM一直提供服务。而实际上，在热迁移的过程中，VM会短暂地暂停一段时间。 openstack的热迁移是nova组件调用libvirtd完成的。我们一般通过nova配置文件（path：&#x2F;etc&#x2F;nova&#x2F;nova.conf）来设置有关热迁移的">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2018-10-22T11:48:43.000Z">
+<meta property="article:modified_time" content="2020-09-15T09:41:30.436Z">
+<meta property="article:author" content="Chris Liu">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://yoursite.com/2018/10/22/%E8%AF%A6%E8%A7%A3openstack%E4%B8%8B%E7%83%AD%E8%BF%81%E7%A7%BB%E6%9C%BA%E5%88%B6/">
+
+
+<script data-pjax class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>详解openstack下热迁移机制 | Chris' blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Chris' blog</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Chris Liu</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+          <span class="site-state-item-count">4</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </section>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+      
+
+      
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/10/22/%E8%AF%A6%E8%A7%A3openstack%E4%B8%8B%E7%83%AD%E8%BF%81%E7%A7%BB%E6%9C%BA%E5%88%B6/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Chris Liu">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chris' blog">
+    </span>
+
+    
+    
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          详解openstack下热迁移机制
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-10-22 19:48:43" itemprop="dateCreated datePublished" datetime="2018-10-22T19:48:43+08:00">2018-10-22</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">Edited on</span>
+        <time title="Modified: 2020-09-15 17:41:30" itemprop="dateModified" datetime="2020-09-15T17:41:30+08:00">2020-09-15</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">集群管理</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86/%E4%BA%91%E8%AE%A1%E7%AE%97/" itemprop="url" rel="index"><span itemprop="name">云计算</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>热迁移，也叫在线迁移（live migration），是虚拟机从一台主机上迁移到另一台主机上但是“不中断VM服务”的一种机制。这里“不中断”指的是在用户观感上，VM一直提供服务。而实际上，在热迁移的过程中，VM会短暂地暂停一段时间。</p>
+<p>openstack的热迁移是nova组件调用libvirtd完成的。我们一般通过nova配置文件（path：/etc/nova/nova.conf）来设置有关热迁移的参数，从而让VM按照我们希望的方式进行在线迁移。</p>
+<p>nova配置文件有关热迁移的参数有如下几个：</p>
+<ul>
+<li>live_migration_bandwidth</li>
+<li>live_migration_downtime</li>
+<li>live_migration_downtime_steps</li>
+<li>live_migration_downtime_delay</li>
+<li>live_migration_completion_timeout</li>
+<li>live_migration_permit_post_copy</li>
+<li>live_migration_permit_auto_converge </li>
+</ul>
+<hr>
+<p>下面详细地介绍这几个参数代表的意义以及对热迁移产生的影响。</p>
+<blockquote>
+<p><strong>live_migration_bandwidth</strong></p>
+<p>它是迁移期间要使用的最大带宽（以MiB / s为单位），默认值是0，意味着不限制迁移带宽。</p>
+</blockquote>
+<blockquote>
+<p><strong>live_migration_downtime、live_migration_downtime_steps、live_migration_downtime_delay</strong></p>
+<p>这三个参数都是有关热迁移停机时间（downtime）的。我们说热迁移过程中VM会短暂的暂停，而VM暂停的时间就是停机时间，它与这三个参数有关。</p>
+<p>实际上，热迁移是转移内存（或存储）的过程。源主机不断把虚拟机的内存转移到目的主机，直到源主机仅仅省一部分可以一次转移完成的内存未被转移，此时把源主机上的虚拟机暂停，转移掉最后这一部分。这样做是因为，在转移内存时，源主机上的虚拟机有可能在提供有关内存写入的服务，生成新的未被迁移的内存，这就是所谓的“脏内存”，如果不暂停虚拟机，“脏内存”一直产生，迁移永远不能完成。</p>
+<p>openstack下热迁移的停机时间（downtime）不是单纯设置一个数字那么简单，它停机策略要稍微复杂一点。openstack在迁移过程中的停机时间是变化的，该值不断增加，在一段时间后停机时间达到最终的最大值，这个值就是由<strong>live_migration_downtime</strong>设定的。而<strong>live_migration_downtime_steps</strong>表示达到最大值所经历的次数，<strong>live_migration_downtime_delay</strong>表示每一次增加downtime的间隔时间。下面举一个实验的例子，来具体说明停机时间是如何变化的：</p>
+<p>进行实验的虚拟机的内存为4GiB。在/etc/nova/nova.conf设置的三个参数的值如下：</p>
+<p>live_migration_downtime=5000 / live_migration_downtime_steps=7 / live_migration_downtime_steps=75</p>
+<p>查看nova的log日志（path：/var/log/nova/nova-compute.log），找到了nova的变化情况</p>
+<ol>
+<li>Increasing downtime to 714 ms after 0 sec elapsed time</li>
+<li>Increasing downtime to 1326 ms after 300 sec elapsed time</li>
+<li>Increasing downtime to 1938 ms after 600 sec elapsed time</li>
+<li>Increasing downtime to 2550 ms after 900 sec elapsed time</li>
+<li>Increasing downtime to 3162 ms after 1200 sec elapsed time</li>
+<li>Increasing downtime to 3774 ms after 1500 sec elapsed time</li>
+<li>Increasing downtime to 4386 ms after 1800 sec elapsed time</li>
+<li>Increasing downtime to 4998 ms after 2100 sec elapsed time</li>
+</ol>
+<p>可以看到，初始的downtime是一个较小的值，经历七步以后，downtime增加到接近5000（ms）。初始的downtime值是由<strong>live_migration_downtime</strong>/<strong>live_migration_downtime_steps</strong>得来的，这里就是5000/7=714（ms）。每一步增加的时间是由初始的downtime*(<strong>live_migration_downtime_steps-1</strong>)<strong>/live_migration_downtime_steps</strong>得到的，这里就是714*(7-1)/7=612（ms）。</p>
+<p>除此之外，我们发现，迁移每进行300s，downtime就变化一次，300s这个时间是由<strong>live_migration_downtime_delay</strong>决定的。在这里，300s=*<em>live_migration_downtime_delay**</em>VM内存大小（GiB），即75*4=300。</p>
+<p>在实际实际工作中，在最大停机时间一定的情况下，有时我们需要尽快完成迁移，不在乎停机的时间，这时我们减少<strong>live_migration_downtime_steps</strong>和<strong>live_migration_downtime_delay</strong>，尽快达到最大停机时间；有时我们不在乎迁移总时长，希望服务中断的时间越短越好， 就尽量增大<strong>live_migration_downtime_steps</strong>和<strong>live_migration_downtime_delay</strong>，慢慢地达到最大停机时间，这样在有可能在最大停机时间内完成VM的迁移。</p>
+</blockquote>
+<blockquote>
+<p> <strong>live_migration_completion_timeout</strong></p>
+<p>这个参数表示整个迁移过程所允许的最大迁移时间，若超过这个时间迁移未完成，则迁移失败，取消迁移。这个参数跟<strong>live_migration_downtime_delay</strong>一样，也与内存有关系。实际的最大完成时间=*<em>live_migration_completion_timeout**</em>VM内存大小（GiB）。<strong>live_migration_completion_timeout</strong>的默认值为800，假如虚拟机的内存大小是4GiB，那么意味着在3200s的时候，未迁移完成的该虚拟机停止迁移，迁移失败。</p>
+</blockquote>
+<blockquote>
+<p><strong>live_migration_permit_post_copy</strong></p>
+<p><strong>live_migration_permit_post_copy</strong>是一种迁移模式，叫做后拷贝。在不设定此模式的情况下，VM都是通过前拷贝完成的，所谓前拷贝指的是VM上所有内存数据都是在切换到目标主机之前拷贝完的。而后拷贝会先尽可能快的切换到目标主机，因此后拷贝模式会先传输设备的状态和一部分(10%)数据到目标主机，然后就简单的切换到目标主机上面运行虚拟机。当发现访问虚拟机的某些内存page不存在时，就会产生一个远程页错误，触发从源主机上面拉取该page的动作。这种后拷贝的迁移模式相对于前拷贝更加危险，当网络不同，或任意一台主机出现故障的时候，虚拟机会出现异常。</p>
+</blockquote>
+<blockquote>
+<p><strong>live_migration_permit_auto_converge</strong></p>
+<p><strong>live_migration_permit_auto_converge</strong>是另一种迁移模式，叫做自动收敛。它在虚拟机长时间处于高业务下而影响迁移的时候，调整vcpu的参数减少vcpu的负载，降低“脏内存”的增长速度，从而使迁移能够顺利完成。</p>
+<p>在libvirtd中，当“脏内存“的增长速度大于迁移内存传输速度时，触发自动收敛模式，libvirtd在一开始降低了20%的vcpu性能，如果“脏内存“的增长速度依旧大于迁移内存传输速度，则在此基础上再降低10%的性能，直到“脏内存“的增长速度小于迁移内存传输速度。值得注意的是，该模式只能保证虚拟机未迁移的内存持续减少，但不能保证迁移在设定的最大迁移时间内迁移完成。</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/03/15/%E7%94%A8DCGAN%E7%94%9F%E6%88%90%E6%89%8B%E5%86%99%E4%BD%93%E6%95%B0%E5%AD%97%E5%9B%BE%E5%83%8F%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90/" rel="prev" title="用DCGAN生成手写体数字图像代码解析">
+                  <i class="fa fa-chevron-left"></i> 用DCGAN生成手写体数字图像代码解析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/08/25/hello-blog/" rel="next" title="第一篇博文">
+                  第一篇博文 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+  
+  
+  
+
+
+
+      
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      
+
+      
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-fire"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Chris Liu</span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script src="//unpkg.com/animejs@3.2.0/lib/anime.min.js"></script>
+  <script src="//unpkg.com/@next-theme/pjax@0.4.0/pjax.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '.page-configurations',
+    '.main-inner',
+    '.post-toc-wrap',
+    '.languages',
+    '.pjax'
+  ],
+  analytics: false,
+  cacheBust: false,
+  scrollRestoration: false,
+  scrollTo: !CONFIG.bookmark.enable
+});
+
+document.addEventListener('pjax:success', () => {
+  pjax.executeScripts(document.querySelectorAll('script[data-pjax], .pjax script'));
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  const hasTOC = document.querySelector('.post-toc');
+  document.querySelector('.sidebar-inner').classList.toggle('sidebar-nav-active', hasTOC);
+  document.querySelector(hasTOC ? '.sidebar-nav-toc' : '.sidebar-nav-overview').click();
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+    <div class="pjax">
+  
+
+  
+
+    </div>
+</body>
+</html>

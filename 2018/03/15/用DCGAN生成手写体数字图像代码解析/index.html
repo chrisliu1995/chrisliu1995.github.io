@@ -22,29 +22,33 @@
     var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"8.0.0-rc.5","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}};
   </script>
 
-  <meta property="og:type" content="website">
-<meta property="og:title" content="Chris&#39; blog">
-<meta property="og:url" content="http://yoursite.com/index.html">
+  <meta name="description" content="该项目源码位于：https:&#x2F;&#x2F;github.com&#x2F;jazzsaxmafia&#x2F;dcgan_tensorflow&#x2F;tree&#x2F;master&#x2F;mnist 项目共有四个python文件，分别是util.py，load.py，model.py和train.py util.py文件把项目中用到的工具函数整理到一起，包括onehot，图像剪裁，图像拼接 1234567891011121314151617181">
+<meta property="og:type" content="article">
+<meta property="og:title" content="用DCGAN生成手写体数字图像代码解析">
+<meta property="og:url" content="http://yoursite.com/2018/03/15/%E7%94%A8DCGAN%E7%94%9F%E6%88%90%E6%89%8B%E5%86%99%E4%BD%93%E6%95%B0%E5%AD%97%E5%9B%BE%E5%83%8F%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90/index.html">
 <meta property="og:site_name" content="Chris&#39; blog">
+<meta property="og:description" content="该项目源码位于：https:&#x2F;&#x2F;github.com&#x2F;jazzsaxmafia&#x2F;dcgan_tensorflow&#x2F;tree&#x2F;master&#x2F;mnist 项目共有四个python文件，分别是util.py，load.py，model.py和train.py util.py文件把项目中用到的工具函数整理到一起，包括onehot，图像剪裁，图像拼接 1234567891011121314151617181">
 <meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2018-03-15T11:13:24.000Z">
+<meta property="article:modified_time" content="2020-09-15T09:39:05.924Z">
 <meta property="article:author" content="Chris Liu">
 <meta name="twitter:card" content="summary">
 
 
-<link rel="canonical" href="http://yoursite.com/">
+<link rel="canonical" href="http://yoursite.com/2018/03/15/%E7%94%A8DCGAN%E7%94%9F%E6%88%90%E6%89%8B%E5%86%99%E4%BD%93%E6%95%B0%E5%AD%97%E5%9B%BE%E5%83%8F%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90/">
 
 
 <script data-pjax class="page-configurations">
   // https://hexo.io/docs/variables.html
   CONFIG.page = {
     sidebar: "",
-    isHome : true,
-    isPost : false,
+    isHome : false,
+    isPost : true,
     lang   : 'en'
   };
 </script>
 
-  <title>Chris' blog</title>
+  <title>用DCGAN生成手写体数字图像代码解析 | Chris' blog</title>
   
 
 
@@ -217,216 +221,12 @@
 </noscript>
 
 
-    <div class="main-inner index posts-expand">
+    <div class="main-inner post posts-expand">
       
 
       
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/08/25/hello-blog/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Chris Liu">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Chris' blog">
-    </span>
 
     
-    
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/08/25/hello-blog/" class="post-title-link" itemprop="url">第一篇博文</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">Posted on</span>
-
-      <time title="Created: 2020-08-25 19:53:13" itemprop="dateCreated datePublished" datetime="2020-08-25T19:53:13+08:00">2020-08-25</time>
-    </span>
-      <span class="post-meta-item">
-        <span class="post-meta-item-icon">
-          <i class="far fa-calendar-check"></i>
-        </span>
-        <span class="post-meta-item-text">Edited on</span>
-        <time title="Modified: 2020-09-15 17:29:15" itemprop="dateModified" datetime="2020-09-15T17:29:15+08:00">2020-09-15</time>
-      </span>
-
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>想搭个人博客想了很久，纠结于没那么多东西写，感觉没太大用。最后想想，还是希望有一个复合的空间可以把跟个人有关的技术和生活记录下来。争取多写文章，多做记录，多多提高。Record, Impove, Change.</p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/10/22/%E8%AF%A6%E8%A7%A3openstack%E4%B8%8B%E7%83%AD%E8%BF%81%E7%A7%BB%E6%9C%BA%E5%88%B6/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Chris Liu">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Chris' blog">
-    </span>
-
-    
-    
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2018/10/22/%E8%AF%A6%E8%A7%A3openstack%E4%B8%8B%E7%83%AD%E8%BF%81%E7%A7%BB%E6%9C%BA%E5%88%B6/" class="post-title-link" itemprop="url">详解openstack下热迁移机制</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">Posted on</span>
-
-      <time title="Created: 2018-10-22 19:48:43" itemprop="dateCreated datePublished" datetime="2018-10-22T19:48:43+08:00">2018-10-22</time>
-    </span>
-      <span class="post-meta-item">
-        <span class="post-meta-item-icon">
-          <i class="far fa-calendar-check"></i>
-        </span>
-        <span class="post-meta-item-text">Edited on</span>
-        <time title="Modified: 2020-09-15 17:41:30" itemprop="dateModified" datetime="2020-09-15T17:41:30+08:00">2020-09-15</time>
-      </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">In</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">集群管理</span></a>
-        </span>
-          , 
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86/%E4%BA%91%E8%AE%A1%E7%AE%97/" itemprop="url" rel="index"><span itemprop="name">云计算</span></a>
-        </span>
-    </span>
-
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>热迁移，也叫在线迁移（live migration），是虚拟机从一台主机上迁移到另一台主机上但是“不中断VM服务”的一种机制。这里“不中断”指的是在用户观感上，VM一直提供服务。而实际上，在热迁移的过程中，VM会短暂地暂停一段时间。</p>
-<p>openstack的热迁移是nova组件调用libvirtd完成的。我们一般通过nova配置文件（path：/etc/nova/nova.conf）来设置有关热迁移的参数，从而让VM按照我们希望的方式进行在线迁移。</p>
-<p>nova配置文件有关热迁移的参数有如下几个：</p>
-<ul>
-<li>live_migration_bandwidth</li>
-<li>live_migration_downtime</li>
-<li>live_migration_downtime_steps</li>
-<li>live_migration_downtime_delay</li>
-<li>live_migration_completion_timeout</li>
-<li>live_migration_permit_post_copy</li>
-<li>live_migration_permit_auto_converge </li>
-</ul>
-<hr>
-<p>下面详细地介绍这几个参数代表的意义以及对热迁移产生的影响。</p>
-<blockquote>
-<p><strong>live_migration_bandwidth</strong></p>
-<p>它是迁移期间要使用的最大带宽（以MiB / s为单位），默认值是0，意味着不限制迁移带宽。</p>
-</blockquote>
-<blockquote>
-<p><strong>live_migration_downtime、live_migration_downtime_steps、live_migration_downtime_delay</strong></p>
-<p>这三个参数都是有关热迁移停机时间（downtime）的。我们说热迁移过程中VM会短暂的暂停，而VM暂停的时间就是停机时间，它与这三个参数有关。</p>
-<p>实际上，热迁移是转移内存（或存储）的过程。源主机不断把虚拟机的内存转移到目的主机，直到源主机仅仅省一部分可以一次转移完成的内存未被转移，此时把源主机上的虚拟机暂停，转移掉最后这一部分。这样做是因为，在转移内存时，源主机上的虚拟机有可能在提供有关内存写入的服务，生成新的未被迁移的内存，这就是所谓的“脏内存”，如果不暂停虚拟机，“脏内存”一直产生，迁移永远不能完成。</p>
-<p>openstack下热迁移的停机时间（downtime）不是单纯设置一个数字那么简单，它停机策略要稍微复杂一点。openstack在迁移过程中的停机时间是变化的，该值不断增加，在一段时间后停机时间达到最终的最大值，这个值就是由<strong>live_migration_downtime</strong>设定的。而<strong>live_migration_downtime_steps</strong>表示达到最大值所经历的次数，<strong>live_migration_downtime_delay</strong>表示每一次增加downtime的间隔时间。下面举一个实验的例子，来具体说明停机时间是如何变化的：</p>
-<p>进行实验的虚拟机的内存为4GiB。在/etc/nova/nova.conf设置的三个参数的值如下：</p>
-<p>live_migration_downtime=5000 / live_migration_downtime_steps=7 / live_migration_downtime_steps=75</p>
-<p>查看nova的log日志（path：/var/log/nova/nova-compute.log），找到了nova的变化情况</p>
-<ol>
-<li>Increasing downtime to 714 ms after 0 sec elapsed time</li>
-<li>Increasing downtime to 1326 ms after 300 sec elapsed time</li>
-<li>Increasing downtime to 1938 ms after 600 sec elapsed time</li>
-<li>Increasing downtime to 2550 ms after 900 sec elapsed time</li>
-<li>Increasing downtime to 3162 ms after 1200 sec elapsed time</li>
-<li>Increasing downtime to 3774 ms after 1500 sec elapsed time</li>
-<li>Increasing downtime to 4386 ms after 1800 sec elapsed time</li>
-<li>Increasing downtime to 4998 ms after 2100 sec elapsed time</li>
-</ol>
-<p>可以看到，初始的downtime是一个较小的值，经历七步以后，downtime增加到接近5000（ms）。初始的downtime值是由<strong>live_migration_downtime</strong>/<strong>live_migration_downtime_steps</strong>得来的，这里就是5000/7=714（ms）。每一步增加的时间是由初始的downtime*(<strong>live_migration_downtime_steps-1</strong>)<strong>/live_migration_downtime_steps</strong>得到的，这里就是714*(7-1)/7=612（ms）。</p>
-<p>除此之外，我们发现，迁移每进行300s，downtime就变化一次，300s这个时间是由<strong>live_migration_downtime_delay</strong>决定的。在这里，300s=*<em>live_migration_downtime_delay**</em>VM内存大小（GiB），即75*4=300。</p>
-<p>在实际实际工作中，在最大停机时间一定的情况下，有时我们需要尽快完成迁移，不在乎停机的时间，这时我们减少<strong>live_migration_downtime_steps</strong>和<strong>live_migration_downtime_delay</strong>，尽快达到最大停机时间；有时我们不在乎迁移总时长，希望服务中断的时间越短越好， 就尽量增大<strong>live_migration_downtime_steps</strong>和<strong>live_migration_downtime_delay</strong>，慢慢地达到最大停机时间，这样在有可能在最大停机时间内完成VM的迁移。</p>
-</blockquote>
-<blockquote>
-<p> <strong>live_migration_completion_timeout</strong></p>
-<p>这个参数表示整个迁移过程所允许的最大迁移时间，若超过这个时间迁移未完成，则迁移失败，取消迁移。这个参数跟<strong>live_migration_downtime_delay</strong>一样，也与内存有关系。实际的最大完成时间=*<em>live_migration_completion_timeout**</em>VM内存大小（GiB）。<strong>live_migration_completion_timeout</strong>的默认值为800，假如虚拟机的内存大小是4GiB，那么意味着在3200s的时候，未迁移完成的该虚拟机停止迁移，迁移失败。</p>
-</blockquote>
-<blockquote>
-<p><strong>live_migration_permit_post_copy</strong></p>
-<p><strong>live_migration_permit_post_copy</strong>是一种迁移模式，叫做后拷贝。在不设定此模式的情况下，VM都是通过前拷贝完成的，所谓前拷贝指的是VM上所有内存数据都是在切换到目标主机之前拷贝完的。而后拷贝会先尽可能快的切换到目标主机，因此后拷贝模式会先传输设备的状态和一部分(10%)数据到目标主机，然后就简单的切换到目标主机上面运行虚拟机。当发现访问虚拟机的某些内存page不存在时，就会产生一个远程页错误，触发从源主机上面拉取该page的动作。这种后拷贝的迁移模式相对于前拷贝更加危险，当网络不同，或任意一台主机出现故障的时候，虚拟机会出现异常。</p>
-</blockquote>
-<blockquote>
-<p><strong>live_migration_permit_auto_converge</strong></p>
-<p><strong>live_migration_permit_auto_converge</strong>是另一种迁移模式，叫做自动收敛。它在虚拟机长时间处于高业务下而影响迁移的时候，调整vcpu的参数减少vcpu的负载，降低“脏内存”的增长速度，从而使迁移能够顺利完成。</p>
-<p>在libvirtd中，当“脏内存“的增长速度大于迁移内存传输速度时，触发自动收敛模式，libvirtd在一开始降低了20%的vcpu性能，如果“脏内存“的增长速度依旧大于迁移内存传输速度，则在此基础上再降低10%的性能，直到“脏内存“的增长速度小于迁移内存传输速度。值得注意的是，该模式只能保证虚拟机未迁移的内存持续减少，但不能保证迁移在设定的最大迁移时间内迁移完成。</p>
-</blockquote>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-  
-  
-  
-
-      
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
@@ -445,10 +245,9 @@
     
     
       <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2018/03/15/%E7%94%A8DCGAN%E7%94%9F%E6%88%90%E6%89%8B%E5%86%99%E4%BD%93%E6%95%B0%E5%AD%97%E5%9B%BE%E5%83%8F%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90/" class="post-title-link" itemprop="url">用DCGAN生成手写体数字图像代码解析</a>
-        </h2>
+        <h1 class="post-title" itemprop="name headline">
+          用DCGAN生成手写体数字图像代码解析
+        </h1>
 
         <div class="post-meta-container">
           <div class="post-meta">
@@ -491,7 +290,7 @@
     
     
     <div class="post-body" itemprop="articleBody">
-          <p>该项目源码位于：<br><a target="_blank" rel="noopener" href="https://github.com/jazzsaxmafia/dcgan_tensorflow/tree/master/mnist">https://github.com/jazzsaxmafia/dcgan_tensorflow/tree/master/mnist</a> 项目共有四个python文件，分别是util.py，load.py，model.py和train.py</p>
+        <p>该项目源码位于：<br><a target="_blank" rel="noopener" href="https://github.com/jazzsaxmafia/dcgan_tensorflow/tree/master/mnist">https://github.com/jazzsaxmafia/dcgan_tensorflow/tree/master/mnist</a> 项目共有四个python文件，分别是util.py，load.py，model.py和train.py</p>
 <p>util.py文件把项目中用到的工具函数整理到一起，包括onehot，图像剪裁，图像拼接</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line"># !&#x2F;usr&#x2F;bin&#x2F;python</span><br><span class="line"># -*- coding: utf-8 -*-</span><br><span class="line">import cv2</span><br><span class="line">import scipy.misc</span><br><span class="line">import ipdb</span><br><span class="line">import numpy as np</span><br><span class="line"></span><br><span class="line">def OneHot(X, n&#x3D;None, negative_class&#x3D;0.):</span><br><span class="line">    #将输入的矩阵压平，转化成向量l</span><br><span class="line">    X &#x3D; np.asarray(X).flatten()</span><br><span class="line">    #得到输入数据中最大的值</span><br><span class="line">    if n is None:</span><br><span class="line">        n &#x3D; np.max(X) + 1</span><br><span class="line">    #生成l*n的矩阵，初始个中元素都置为0</span><br><span class="line">    Xoh &#x3D; np.ones((len(X), n)) * negative_class</span><br><span class="line">    #将矩阵每一行中X的值所对应的第n个位置置1，其他位为0</span><br><span class="line">    Xoh[np.arange(len(X)), X] &#x3D; 1.</span><br><span class="line">    return Xoh</span><br><span class="line"># 例：生成如下的矩阵</span><br><span class="line"># [[ 0.  0.  0. ...,  0.  0.  0.]</span><br><span class="line">#  [ 0.  0.  0. ...,  0.  0.  1.]</span><br><span class="line">#  [ 1.  0.  0. ...,  0.  0.  0.]</span><br><span class="line">#  ...,</span><br><span class="line">#  [ 0.  0.  0. ...,  0.  0.  1.]</span><br><span class="line">#  [ 0.  0.  0. ...,  0.  0.  0.]</span><br><span class="line">#  [ 0.  0.  0. ...,  0.  0.  0.]]</span><br><span class="line"></span><br><span class="line">def crop_resize(image_path, resize_shape&#x3D;(64,64)):</span><br><span class="line">    #resize_image 必须是个正方形</span><br><span class="line">    image &#x3D; cv2.imread(image_path)</span><br><span class="line">    height, width, channel &#x3D; image.shape #得到输入图像初始的参数</span><br><span class="line"></span><br><span class="line">    #if width !&#x3D; height, 新正方形的边长是原来图像较短的那一条边</span><br><span class="line">    #resize_image 位于原来图像的正中间区域</span><br><span class="line">    if width &#x3D;&#x3D; height:</span><br><span class="line">        resized_image &#x3D; cv2.resize(image, resize_shape)</span><br><span class="line">    elif width &gt; height:</span><br><span class="line">        resized_image &#x3D; cv2.resize(image, (int(width * float(resize_shape[0])&#x2F;height), resize_shape[1]))</span><br><span class="line">        cropping_length &#x3D; int( (resized_image.shape[1] - resize_shape[0]) &#x2F; 2)</span><br><span class="line">        resized_image &#x3D; resized_image[:,cropping_length:cropping_length+resize_shape[1]]</span><br><span class="line">    else:</span><br><span class="line">        resized_image &#x3D; cv2.resize(image, (resize_shape[0], int(height * float(resize_shape[1])&#x2F;width)))</span><br><span class="line">        cropping_length &#x3D; int( (resized_image.shape[0] - resize_shape[1]) &#x2F; 2)</span><br><span class="line">        resized_image &#x3D; resized_image[cropping_length:cropping_length+resize_shape[0], :]</span><br><span class="line"></span><br><span class="line">    return resized_image&#x2F;127.5 - 1#把返回的图像中每个像素值的范围压缩在-1到1之间</span><br><span class="line"></span><br><span class="line">#把原图为28x28的图像拼凑起来组成一个392x392的图像</span><br><span class="line">def save_visualization(X, (nh, nw), save_path&#x3D;&#39;.&#x2F;vis&#x2F;sample.jpg&#39;):</span><br><span class="line">    h,w &#x3D; X.shape[1], X.shape[2]</span><br><span class="line">    img &#x3D; np.zeros((h * nh, w * nw, 3))</span><br><span class="line"></span><br><span class="line">    for n,x in enumerate(X):</span><br><span class="line">        j &#x3D; n &#x2F; nw</span><br><span class="line">        i &#x3D; n % nw</span><br><span class="line">        img[j*h:j*h+h, i*w:i*w+w, :] &#x3D; x</span><br><span class="line"></span><br><span class="line">    scipy.misc.imsave(save_path, img)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
@@ -509,7 +308,6 @@
 <p>在这里，h2增加了10个通道。它的作用是什么呢？</p>
 <p>通过在网上查阅资料，本文结尾处的问题可用Conditional GAN解释。增加的y，为图像提供标签作为条件信息。它的基本原理是：在生成器模型中，在生成模型（G）和判别模型（D）的建模中均引入了条件变量y，这里y可以是label，可以是tags，可以是来自不同模态是数据，甚至可以是一张图片，使用这个额外的条件变量，对于生成器对数据的生成具有指导作用。在生成器模型中，条件变量y实际上是作为一个额外的输入层（additional input layer），它与生成器的噪声输入p(z)组合形成了一个联合的隐层表达；在判别器模型中，y与真实数据x也是作为输入，并输入到一个判别函数当中。实际上就是将z和x分别于y进行concat，分别作为生成器和判别器的输入，再来进行训练。</p>
 
-      
     </div>
 
     
@@ -517,189 +315,25 @@
     
 
     <footer class="post-footer">
-        <div class="post-eof"></div>
-      
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2017/04/24/%E5%9C%A8centos7%E7%9A%84%E6%97%A0%E5%A4%96%E7%BD%91%E7%8E%AF%E5%A2%83%E4%B8%8B%E7%BC%96%E8%AF%91%E5%AE%89%E8%A3%85caffe/" rel="prev" title="在centos7的无外网环境下编译安装caffe">
+                  <i class="fa fa-chevron-left"></i> 在centos7的无外网环境下编译安装caffe
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/10/22/%E8%AF%A6%E8%A7%A3openstack%E4%B8%8B%E7%83%AD%E8%BF%81%E7%A7%BB%E6%9C%BA%E5%88%B6/" rel="next" title="详解openstack下热迁移机制">
+                  详解openstack下热迁移机制 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
     </footer>
   </article>
   
   
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/04/24/%E5%9C%A8centos7%E7%9A%84%E6%97%A0%E5%A4%96%E7%BD%91%E7%8E%AF%E5%A2%83%E4%B8%8B%E7%BC%96%E8%AF%91%E5%AE%89%E8%A3%85caffe/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Chris Liu">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Chris' blog">
-    </span>
-
-    
-    
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2017/04/24/%E5%9C%A8centos7%E7%9A%84%E6%97%A0%E5%A4%96%E7%BD%91%E7%8E%AF%E5%A2%83%E4%B8%8B%E7%BC%96%E8%AF%91%E5%AE%89%E8%A3%85caffe/" class="post-title-link" itemprop="url">在centos7的无外网环境下编译安装caffe</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">Posted on</span>
-
-      <time title="Created: 2017-04-24 11:01:09" itemprop="dateCreated datePublished" datetime="2017-04-24T11:01:09+08:00">2017-04-24</time>
-    </span>
-      <span class="post-meta-item">
-        <span class="post-meta-item-icon">
-          <i class="far fa-calendar-check"></i>
-        </span>
-        <span class="post-meta-item-text">Edited on</span>
-        <time title="Modified: 2020-09-15 17:39:08" itemprop="dateModified" datetime="2020-09-15T17:39:08+08:00">2020-09-15</time>
-      </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">In</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0/" itemprop="url" rel="index"><span itemprop="name">深度学习</span></a>
-        </span>
-    </span>
-
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>由于机器涉密，无法连接外网，导致yum命令不可用，配置安装caffe的过程变得繁琐复杂，所有的依赖都需要手动编译。先列出caffe需要的依赖：</p>
-<ul>
-<li><strong>Boost</strong></li>
-<li><strong>glog</strong></li>
-<li><strong>protobuf</strong></li>
-<li><strong>lmdb</strong></li>
-<li><strong>LevelDB</strong></li>
-<li><strong>Snappy</strong></li>
-<li><strong>gflags</strong></li>
-<li><strong>BLAS</strong></li>
-<li><strong>opencv</strong></li>
-<li><strong>HDF5</strong></li>
-<li><strong>cuda</strong></li>
-</ul>
-<p>我的cmake版本：2.8.12.2<br>所有的安装包都上传到/usr/local 下解压编译</p>
-<hr>
-<p><strong>1.Boost：</strong><br><a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1dE2WdDf%20%20%20%E5%8D%9A%E4%B8%BBBoost%E4%B8%8B%E8%BD%BD%E5%9C%B0%E5%9D%80">博主的Boost下载地址</a></p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># tar jxvf  boost_1_55_0.tar.bz2  </span><br><span class="line"># cd boost_1_55_0</span><br><span class="line"># .&#x2F;bootstrap.sh  </span><br><span class="line"># .&#x2F;b2  </span><br><span class="line"># sudo .&#x2F;b2 install  </span><br></pre></td></tr></table></figure>
-<hr>
-<p><strong>2.glog：</strong><br><a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1o7ISKJo">博主的glog下载地址</a></p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># tar zxvf glog-0.3.3.tar.gz </span><br><span class="line"># cd glog-0.3.3 </span><br><span class="line"># .&#x2F;configure </span><br><span class="line"># make &amp;&amp; make install </span><br></pre></td></tr></table></figure>
-
-<hr>
-<p><strong>3.protobuf：</strong><br><a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1pLHLdLD">博主的protobuf下载地址</a></p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># tar -zxf protobuf-2.5.0.tar.gz</span><br><span class="line"># cd protobuf-2.5.0</span><br><span class="line"># .&#x2F;configure --prefix&#x3D;&#x2F;usr&#x2F;local&#x2F;protobuf&#x2F;</span><br><span class="line"># make &amp;&amp; make install</span><br><span class="line">&#x2F;&#x2F;最后将下面的的语句加入到环境变量中</span><br><span class="line"># export PATH&#x3D;&#x2F;usr&#x2F;local&#x2F;protobuf&#x2F;bin:$PATH</span><br></pre></td></tr></table></figure>
-
-<hr>
-<p><strong>4.lmdb</strong><br><a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1jHCVqGu">博主的lmdb的下载地址</a></p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># unzip lmdb-mdb.master.zip</span><br><span class="line"># cd lmdb-mdb.master&#x2F;libraries&#x2F;liblmdb </span><br><span class="line"># make &amp;&amp; make install</span><br></pre></td></tr></table></figure>
-
-<hr>
-<p><strong>5.LevelDB</strong><br><a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1bo4wgcZ">博主的levelDB下载地址</a></p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># unzip leveldb-master.zip</span><br><span class="line"># cd leveldb-master</span><br><span class="line"># make</span><br><span class="line"># sudo cp -r include&#x2F;leveldb &#x2F;usr&#x2F;local&#x2F;include</span><br><span class="line"># cd out-shared </span><br><span class="line"># cp lib* &#x2F;usr&#x2F;local&#x2F;lib</span><br></pre></td></tr></table></figure>
-
-<hr>
-<p><strong>6.Snappy</strong><br><a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1jH758ii">博主的Snappy下载地址</a></p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># tar -zvxf snappy-1.1.2.tar.gz</span><br><span class="line"># cd snappy-1.1.2</span><br><span class="line"># .&#x2F;configure </span><br><span class="line"># make</span><br><span class="line"># make install</span><br></pre></td></tr></table></figure>
-
-
-
-<hr>
-<p><strong>7.gflags:</strong><br><a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1gfeLBAN">博主的gflags下载地址</a></p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># unzip gflags-master.zip </span><br><span class="line"># cd gflags-master  </span><br><span class="line"># mkdir build &amp;&amp; cd build  </span><br><span class="line"># export CXXFLAGS&#x3D;&quot;-fPIC&quot;</span><br><span class="line"># cmake .. &amp;&amp; make VERBOSE&#x3D;1  </span><br><span class="line"># make &amp;&amp; make install  </span><br></pre></td></tr></table></figure>
-<p>我在执行 export CXXFLAGS=”-fPIC” 后cmake出现问题（也许大家不会出现该问题）：</p>
-<p><code>The C++ compiler &quot;/usr/bin/c++&quot; is not able to compile a simple test program</code></p>
-<p>始终无法解决，决定不执行export CXXFLAGS=”-fPIC”<br>但编译安装gflags成功后，编译caffe时出现问题：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Linking CXX shared library ..&#x2F;..&#x2F;lib&#x2F;libcaffe-d.so</span><br><span class="line">&#x2F;usr&#x2F;bin&#x2F;ld: &#x2F;usr&#x2F;local&#x2F;lib&#x2F;libgflags.a(gflags.cc.o): relocation R_X86_64_32S against &#96;.rodata&#39; can not be used when making a shared object; recompile with -fPIC</span><br><span class="line">&#x2F;usr&#x2F;local&#x2F;lib&#x2F;libgflags.a: error adding symbols: Bad value</span><br><span class="line">collect2: error: ld returned 1 exit status</span><br><span class="line">make[2]: *** [lib&#x2F;libcaffe-d.so.1.0.0-rc3] Error 1</span><br><span class="line">make[1]: *** [src&#x2F;caffe&#x2F;CMakeFiles&#x2F;caffe.dir&#x2F;all] Error 2</span><br><span class="line">make: *** [all] Error 2</span><br></pre></td></tr></table></figure>
-<p>说明gflags编译时没有生成共享库，重新编译gflags</p>
-<p>解决方法：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># unzip gflags-master.zip </span><br><span class="line"># cd gflags-master  </span><br><span class="line"># mkdir build &amp;&amp; cd build  </span><br><span class="line"># cmake .. -DBUILD_SHARED_LIB&#x3D;ON</span><br><span class="line"># make VERBOSE&#x3D;1  </span><br><span class="line"># make &amp;&amp; make install  </span><br></pre></td></tr></table></figure>
-<hr>
-<p><strong>8.BLAS：</strong></p>
-<p>BLAS是用来进行矩阵运算的，在这里我试了两种blas。最终我使用openblas完成了编译安装。</p>
-<p>首先，我尝试安装atlas <a target="_blank" rel="noopener" href="https://pan.baididu.com/s/1geMW3xu.com/s/1geMW3x">博主的atlas下载地址</a></p>
-<p>用rpm命令安装该包<br><code>rpm -ivh Atlas-2.2.1-2.l7.centos.src.rpm</code></p>
-<p>安装成功后atlas目录被放在了/usr/lib64/atlas<br>然而，编译caffe时cmake出错：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">CMake Error at &#x2F;usr&#x2F;share&#x2F;cmake&#x2F;Modules&#x2F;FindPackageHandleStandardArgs.cmake:108 (message):</span><br><span class="line">  Could NOT find Atlas (missing: Atlas_CLAPACK_INCLUDE_DIR</span><br><span class="line">  Atlas_CBLAS_LIBRARY Atlas_BLAS_LIBRARY)</span><br></pre></td></tr></table></figure>
-<p>解决方法：<br><code>在cmake .. 后加 -DAtlas=/usr/lib64/atlas</code></p>
-<p>但编译时出现问题：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">..&#x2F;lib&#x2F;libcaffe-d.so.1.0.0-rc3: undefined reference to &#96;cblas_sgemv&#39; </span><br><span class="line">..&#x2F;lib&#x2F;libcaffe-d.so.1.0.0-rc3: undefined reference to &#96;cblas_dgemm&#39; </span><br><span class="line">..&#x2F;lib&#x2F;libcaffe-d.so.1.0.0-rc3: undefined reference to &#96;cblas_sscal&#39; </span><br><span class="line">..&#x2F;lib&#x2F;libcaffe-d.so.1.0.0-rc3: undefined refere</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
-<p>查阅资料后，个人认为有两种出错的可能<br>一是atlas安装不完全，缺少依赖，因为github上的atlas rpm包都是在centos6.x和5.x安装的版本，我在网上找到的版本也许还需要安装其他的atlas rpm包。二是除了安装atlas以外，要再安装一个叫做cblas的库。问题出现的具体原因由于时间关系没能继续研究，于是放弃了atlas，选择了OpenBLAS。</p>
-<p><a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1pLue4lH">博主的OpenBLAS下载地址</a></p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># tar -xzvf OpenBLAS.tar.gz </span><br><span class="line"># cd OpenBLAS</span><br><span class="line"># make </span><br><span class="line"># make PREFIX&#x3D;&#x2F;usr&#x2F;local&#x2F; install </span><br><span class="line">&#x2F;&#x2F;将libopenblas库拷贝到&#x2F;usr&#x2F;local&#x2F;lib里</span><br><span class="line"># cp lib* &#x2F;usr&#x2F;local&#x2F;lib </span><br></pre></td></tr></table></figure>
-<p>OpenBLAS安装完成</p>
-<p>//2017.4.26修正<br>在运行使用caffe框架的程序时，出现问题：Segment fault (core dumped)<br>gdb 后 发现错误：</p>
-<p>[Thread debugging using libthread_db enabled]<br>Using host libthread_db library “/lib64/libthread_db.so.1”.<br>Core was generated by `./lshdemo batchquery query_image.feature retrival_image.index query_image.lst r’.<br>Program terminated with signal SIGSEGV, Segmentation fault.<br>#0  0x00007f522ca92a1c in blas_level1_thread () from /usr/local/lib/libopenblas.so.0<br>(gdb)  </p>
-<p>推测是OpenBLAS包的问题，重新下载了一份OpenBLAS包，重新上传编译安装。最终问题解决。<a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1bo1Eu0B">附上新OpenBLAS下载地址</a></p>
-<hr>
-<p><strong>9.Opencv</strong><br>opencv安装教程都比较多，博主这里主要列出安装时我出现的问题</p>
-<ul>
-<li><p>我使用的opencv版本是3.2.0，cmake时会从网上download一个名为 ippicv_linux_20151201.tgz 的包，但是机器无法连接外网，故该包下载失败，我用自己机器在互联网上找到了该包<a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1slvwu3j">（该包下载地址）</a>，将其放在/usr/local/opencv-3.2.0/3rdparty/ippicv/downloads/linux-808b791a6eac9ed78d32a7666804320e 下，重新cmake，成功。</p>
-</li>
-<li><p>编译时出现问题1</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">make[2]: *** [modules&#x2F;gpu&#x2F;CMakeFiles&#x2F;opencv_gpu.dir&#x2F;src&#x2F;graphcuts.o] Error 1 </span><br><span class="line">make[1]: *** [modules&#x2F;gpu&#x2F;CMakeFiles&#x2F;opencv_gpu.dir&#x2F;all] Error 2 </span><br><span class="line">make: *** [all] Error 2</span><br></pre></td></tr></table></figure>
-<p> 解决方法：Cmake时 加-D BUILD_opencv_gpu=OFF（做测试用，并不需要gpu训练数据）</p>
-</li>
-<li><p>编译时出现问题2</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">modules&#x2F;core&#x2F;CMakeFiles&#x2F;cuda_compile.dir&#x2F;__&#x2F;dynamicuda&#x2F;src&#x2F;cuda&#x2F;.&#x2F;cuda_compile_generated_matrix_operations.cu.o</span><br><span class="line">arm-linux-gnueabihf-gcc: error: unrecognized command line option ‘-m64’</span><br><span class="line">CMake Error at cuda_compile_generated_matrix_operations.cu.o.cmake:206 (message):</span><br><span class="line">Error generating</span><br><span class="line">&#x2F;home&#x2F;yy&#x2F;opencv-2.4.9&#x2F;build&#x2F;modules&#x2F;core&#x2F;CMakeFiles&#x2F;cuda_compile.dir&#x2F;__&#x2F;dynamicuda&#x2F;src&#x2F;cuda&#x2F;.&#x2F;cuda_compile_generated_matrix_operations.cu.o</span><br><span class="line">make[2]: *** [modules&#x2F;core&#x2F;CMakeFiles&#x2F;cuda_compile.dir&#x2F;__&#x2F;dynamicuda&#x2F;src&#x2F;cuda&#x2F;.&#x2F;cuda_compile_generated_matrix_operations.cu.o] 错误 1</span><br><span class="line">make[1]: *** [modules&#x2F;core&#x2F;CMakeFiles&#x2F;opencv_core.dir&#x2F;all] 错误 2</span><br><span class="line">make: *** [all] 错误 2</span><br></pre></td></tr></table></figure>
-<p> 解决方法：Cmake时 加-D CMAKE_BUILD_TYPE=bulid -D CMAKE_INSTALL_PREFIX=/usr/local -D CUDA_GENERATION=Kepler ..”</p>
-</li>
-</ul>
-<hr>
-<p><strong>10.HDF5</strong><br><a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1skRAjMH">博主的HDF5下载地址</a></p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># gunzip &lt; hdf5-X.Y.Z.tar.gz | tar xf -   #解压缩</span><br><span class="line"># cd hdf5-X.Y.Z</span><br><span class="line"># .&#x2F;configure --prefix&#x3D;&#x2F;usr&#x2F;local&#x2F;hdf5  #安装路径</span><br><span class="line"># make</span><br><span class="line"># make check                # run test suite.</span><br><span class="line"># make install</span><br><span class="line"># make check-install        # verify installation.</span><br></pre></td></tr></table></figure>
-
-<hr>
-<p><strong>11.CUDA</strong><br>由于使用的机器上安装了CUDA，博主并未进行这一步</p>
-<hr>
-<p><strong>编译caffe：</strong><br>在Makefile.config文件中更改：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">BLAS：&#x3D;open</span><br><span class="line">BLAS_INCLUDE :&#x3D; &#x2F;usr&#x2F;local&#x2F;include</span><br><span class="line">BLAS_LIB :&#x3D; &#x2F;usr&#x2F;local&#x2F;lib</span><br><span class="line">&#x2F;&#x2F;博主使用的是cpu，故去掉# CPU_ONLY: &#x3D; 1 的注释#</span><br><span class="line">CPU_ONLY: &#x3D; 1</span><br></pre></td></tr></table></figure>
-
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># cmake .. -DBUILD_SHARED_LIB&#x3D;ON -DBLAS&#x3D;open -DOpenCV_DIR&#x3D;&#x2F;usr&#x2F;local&#x2F;opencv-3.2.0&#x2F;build</span><br><span class="line">&#x2F;&#x2F;接下来的安装取决于你使用caffe的方式，在这里，博主需要调用Caffe框架的C++程序，故把Caffe编译成一个库，然后我们可以像正常使用一个库一样，调用和编译C++程序了</span><br><span class="line"># cmake . -DCMAKE_BUILD_TYPE&#x3D;Debug   </span><br><span class="line"># make -j$(nproc)  &amp;&amp; make install     </span><br><span class="line"># cmake . -DCMAKE_BUILD_TYPE&#x3D;Release </span><br><span class="line"># make -j$(nproc)  &amp;&amp; make install </span><br></pre></td></tr></table></figure>
-<p>常出现的问题：cmake时找不到依赖库<br>解决方法：在环境变量里添加export语句，例如，<br>在/etc/profile里添加<br><code>export PATH=/usr/local/protobuf/bin:$PATH</code>；<br>或在cmake语句后明确指出依赖位置，例如，<br><code>-DOpenCV_DIR=/usr/local/opencv-3.2.0/build</code></p>
-<hr>
-<p>参考资料：</p>
-<p><a target="_blank" rel="noopener" href="http://blog.csdn.net/chang_ge/article/details/52650982">http://blog.csdn.net/chang_ge/article/details/52650982</a><br><a target="_blank" rel="noopener" href="http://yongyuan.name/blog/compiling-cpp-code-using-caffe.html">http://yongyuan.name/blog/compiling-cpp-code-using-caffe.html</a><br><a target="_blank" rel="noopener" href="http://blog.csdn.net/s2392735818/article/details/49796017">http://blog.csdn.net/s2392735818/article/details/49796017</a><br><a target="_blank" rel="noopener" href="http://stackoverflow.com/questions/15161278/compile-opencv-without-gpu">http://stackoverflow.com/questions/15161278/compile-opencv-without-gpu</a><br><a target="_blank" rel="noopener" href="http://opencv-users.1802565.n2.nabble.com/OpenCV-with-CUDA-4-1-Support-on-64bit-Ubuntu-11-10-td7304408.html">http://opencv-users.1802565.n2.nabble.com/OpenCV-with-CUDA-4-1-Support-on-64bit-Ubuntu-11-10-td7304408.html</a><br><a target="_blank" rel="noopener" href="http://blog.csdn.net/tjusxh/article/details/41944403">http://blog.csdn.net/tjusxh/article/details/41944403</a><br><a target="_blank" rel="noopener" href="http://blog.csdn.net/hairetz/article/details/18049257">http://blog.csdn.net/hairetz/article/details/18049257</a><br><a target="_blank" rel="noopener" href="http://blog.csdn.net/luo6620378xu/article/details/8521223">http://blog.csdn.net/luo6620378xu/article/details/8521223</a><br><a target="_blank" rel="noopener" href="http://www.linuxdiyf.com/linux/26164.html">http://www.linuxdiyf.com/linux/26164.html</a></p>
-
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-  
-  
-  
-
-
   
 
 
