@@ -22,16 +22,21 @@
     var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"8.0.0-rc.5","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}};
   </script>
 
-  <meta property="og:type" content="website">
-<meta property="og:title" content="Chris&#39; blog">
-<meta property="og:url" content="http://yoursite.com/archives/2018/index.html">
+  <meta name="description" content="问题出现场景 很多时候，在一个系统中的不同组件对数据库会分别进行插入和更新的操作，组件A插入数据，组件B更改数据，插入的操作一定要在更改操作之前。但很多时候，组件A、B的执行顺序并不容易保证，为了避免组件B先于组件A进行更新操作，应该制定一些策略让mongo的插入和更新操作保序。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="mongo数据库插入和更新的保序问题">
+<meta property="og:url" content="http://yoursite.com/2020/09/21/mongo%E6%95%B0%E6%8D%AE%E5%BA%93%E6%8F%92%E5%85%A5%E5%92%8C%E6%9B%B4%E6%96%B0%E7%9A%84%E4%BF%9D%E5%BA%8F%E9%97%AE%E9%A2%98/index.html">
 <meta property="og:site_name" content="Chris&#39; blog">
+<meta property="og:description" content="问题出现场景 很多时候，在一个系统中的不同组件对数据库会分别进行插入和更新的操作，组件A插入数据，组件B更改数据，插入的操作一定要在更改操作之前。但很多时候，组件A、B的执行顺序并不容易保证，为了避免组件B先于组件A进行更新操作，应该制定一些策略让mongo的插入和更新操作保序。">
 <meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-09-21T14:42:46.000Z">
+<meta property="article:modified_time" content="2020-09-21T15:01:36.121Z">
 <meta property="article:author" content="Chris Liu">
+<meta property="article:tag" content="mongo">
 <meta name="twitter:card" content="summary">
 
 
-<link rel="canonical" href="http://yoursite.com/archives/2018/">
+<link rel="canonical" href="http://yoursite.com/2020/09/21/mongo%E6%95%B0%E6%8D%AE%E5%BA%93%E6%8F%92%E5%85%A5%E5%92%8C%E6%9B%B4%E6%96%B0%E7%9A%84%E4%BF%9D%E5%BA%8F%E9%97%AE%E9%A2%98/">
 
 
 <script data-pjax class="page-configurations">
@@ -39,12 +44,12 @@
   CONFIG.page = {
     sidebar: "",
     isHome : false,
-    isPost : false,
+    isPost : true,
     lang   : 'en'
   };
 </script>
 
-  <title>Archive | Chris' blog</title>
+  <title>mongo数据库插入和更新的保序问题 | Chris' blog</title>
   
 
 
@@ -223,72 +228,116 @@
 </noscript>
 
 
-    <div class="main-inner archive posts-collapse">
+    <div class="main-inner post posts-expand">
       
 
       
 
+    
   
   
-  
-  <div class="post-block">
-    <div class="post-content">
-      <div class="collection-title">
-        <span class="collection-header">Um..! 4 posts in total. Keep on posting.</span>
-      </div>
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/09/21/mongo%E6%95%B0%E6%8D%AE%E5%BA%93%E6%8F%92%E5%85%A5%E5%92%8C%E6%9B%B4%E6%96%B0%E7%9A%84%E4%BF%9D%E5%BA%8F%E9%97%AE%E9%A2%98/">
 
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Chris Liu">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chris' blog">
+    </span>
+
+    
+    
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          mongo数据库插入和更新的保序问题
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
       
-    <div class="collection-year">
-      <span class="collection-header">2018</span>
+
+      <time title="Created: 2020-09-21 22:42:46 / Modified: 23:01:36" itemprop="dateCreated datePublished" datetime="2020-09-21T22:42:46+08:00">2020-09-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><strong>问题出现场景</strong></p>
+<p>很多时候，在一个系统中的不同组件对数据库会分别进行<code>插入</code>和<code>更新</code>的操作，组件A插入数据，组件B更改数据，插入的操作一定要在更改操作之前。但很多时候，组件A、B的执行顺序并不容易保证，为了避免组件B先于组件A进行更新操作，应该制定一些策略让mongo的插入和更新操作<code>保序</code>。</p>
+<a id="more"></a>
+
+<p><strong>解决方案</strong></p>
+<p>最近的一个项目中也出现了这样的情况，最后得出的方案是利用mongo的upsert方法：</p>
+<ul>
+<li>当数据库里不存在这条数据的话，将插入数据并填写对应的字段。</li>
+<li>当数据库中存在这条数据的话，则更改这条数据的对应字段，其他字段并不会变。<br>这样一来，无论是组件A或者组件B先执行，都不会出现重复写入或更新失败的错误。</li>
+</ul>
+<p><strong>引入问题及解决方法</strong></p>
+<ol>
+<li>效率问题<ul>
+<li>描述：upsert的速度会随着数据量的增大而变慢。</li>
+<li>原因分析：upsert的过程包括先在库中查询是否存在该条数据，然后进行插入或更改。所以，upsert会因为查询的过程时间增多而增多。</li>
+<li>解决办法：为数据的某个标志字段建立唯一索引，减少查询的时间。</li>
+</ul>
+</li>
+<li>upsert失败<ul>
+<li>描述：组件A和B在upsert时，会存在极少数的情况同时进行upsert，二者查询数据库时都没有查询到数据，但有一个先插入了数据，另一个在插入时发现有数据发生了报错。</li>
+<li>解决方法：由于这种情况出现的情况不多，出现概率较低，所以处理方式为upsert失败重试，基本上不会影响效率。</li>
+</ul>
+</li>
+</ol>
+
     </div>
 
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-      <div class="post-meta-container">
-        <time itemprop="dateCreated"
-              datetime="2018-10-22T19:48:43+08:00"
-              content="2018-10-22">
-          10-22
-        </time>
-      </div>
+    
+    
+    
 
-      <div class="post-title">
-          <a class="post-title-link" href="/2018/10/22/%E8%AF%A6%E8%A7%A3openstack%E4%B8%8B%E7%83%AD%E8%BF%81%E7%A7%BB%E6%9C%BA%E5%88%B6/" itemprop="url">
-            <span itemprop="name">详解openstack下热迁移机制</span>
-          </a>
-      </div>
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mongo/" rel="tag"># mongo</a>
+          </div>
 
-      
-    </header>
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/10/22/%E8%AF%A6%E8%A7%A3openstack%E4%B8%8B%E7%83%AD%E8%BF%81%E7%A7%BB%E6%9C%BA%E5%88%B6/" rel="prev" title="详解openstack下热迁移机制">
+                  <i class="fa fa-chevron-left"></i> 详解openstack下热迁移机制
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
   </article>
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-      <div class="post-meta-container">
-        <time itemprop="dateCreated"
-              datetime="2018-03-15T19:13:24+08:00"
-              content="2018-03-15">
-          03-15
-        </time>
-      </div>
-
-      <div class="post-title">
-          <a class="post-title-link" href="/2018/03/15/%E7%94%A8DCGAN%E7%94%9F%E6%88%90%E6%89%8B%E5%86%99%E4%BD%93%E6%95%B0%E5%AD%97%E5%9B%BE%E5%83%8F%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90/" itemprop="url">
-            <span itemprop="name">用DCGAN生成手写体数字图像代码解析</span>
-          </a>
-      </div>
-
-      
-    </header>
-  </article>
-
-
-    </div>
-  </div>
   
   
-  
-
   
 
 
