@@ -31,7 +31,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="http://yoursite.com/2020/10/14/%E4%BD%BF%E7%94%A8cluster-api%E8%BF%9B%E8%A1%8CK8S%E9%9B%86%E7%BE%A4%E5%88%9B%E5%BB%BA/%E6%8E%A7%E5%88%B6%E5%99%A8%E5%8D%8F%E5%90%8C%E5%B7%A5%E4%BD%9C%E7%A4%BA%E6%84%8F%E5%9B%BE.png">
 <meta property="article:published_time" content="2020-10-14T11:33:28.000Z">
-<meta property="article:modified_time" content="2020-10-14T12:20:05.428Z">
+<meta property="article:modified_time" content="2020-10-14T13:12:16.354Z">
 <meta property="article:author" content="Chris Liu">
 <meta property="article:tag" content="集群管理">
 <meta property="article:tag" content="云计算">
@@ -269,7 +269,7 @@
       <span class="post-meta-item-text">Posted on</span>
       
 
-      <time title="Created: 2020-10-14 19:33:28 / Modified: 20:20:05" itemprop="dateCreated datePublished" datetime="2020-10-14T19:33:28+08:00">2020-10-14</time>
+      <time title="Created: 2020-10-14 19:33:28 / Modified: 21:12:16" itemprop="dateCreated datePublished" datetime="2020-10-14T19:33:28+08:00">2020-10-14</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -291,28 +291,27 @@
     
     
     <div class="post-body" itemprop="articleBody">
-        <p>用K8s的方式创建K8s集群，本篇围绕开源项目cluster-api展开。该项目GitHub地址：<a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/cluster-api">https://github.com/kubernetes-sigs/cluster-api</a></p>
+        <p>用K8s的方式创建K8s集群，本篇围绕开源项目cluster-api展开。该项目GitHub地址：<br><a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/cluster-api">https://github.com/kubernetes-sigs/cluster-api</a></p>
 <a id="more"></a>
 
 <p>对于cluster-api项目，简单地说就是在一个管理集群（manager cluster）中根据一系列生成的CRD对象，让多个控制器协同工作创建一个用户集群（user cluster）的过程。这其中，用户集群的机器、网络等基础设施准备是由具体的provider执行的，provider与cluster-api会根据CRD和controller进行reconcile，构建出最终的目标集群。cluster-api在这个过程中承担着统筹协调的角色。</p>
-<p>在本文选择aws作为集群的provider，该provider也是开源项目，GitHub地址为：<a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/cluster-api-provider-aws%E3%80%82%E7%94%B1%E6%AD%A4%E5%88%9B%E5%BB%BA%E9%9B%86%E7%BE%A4%E7%9A%84%E8%BF%87%E7%A8%8B%E6%B6%89%E5%8F%8A%E5%88%B0%E4%BB%A5%E4%B8%8B%E5%87%A0%E4%B8%AACRD%EF%BC%9Amachine%E3%80%81cluster%E3%80%81kubeadmconfig%E3%80%81awsmachine%E3%80%81awscluster%E3%80%82%E5%85%B6%E4%B8%AD%EF%BC%8Cawsmachine%E3%80%81awscluster%E6%98%AFcapa%EF%BC%88cluster-api-provider-aws%EF%BC%89%E6%89%80%E7%AE%A1%E7%90%86%E7%9A%84CRD%E3%80%82kubeadmconfig%E6%98%AFcapbk%EF%BC%88cluster-api-bootstrap-provider-kubeadm%EF%BC%89%E6%89%80%E7%AE%A1%E7%90%86%E7%9A%84CRD%E3%80%82capbk%E9%A1%B9%E7%9B%AE%E5%9C%B0%E5%9D%80%E4%B8%BA%EF%BC%9Ahttps://github.com/kubernetes-sigs/cluster-api-bootstrap-provider-kubeadm%E3%80%82%E5%9C%A8%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC%E9%87%8C%EF%BC%8Ccapbk%E7%8E%B0%E5%B7%B2%E9%9B%86%E6%88%90%E8%87%B3cluster-api%E9%A1%B9%E7%9B%AE%E4%B8%AD%EF%BC%8C%E6%9C%AC%E6%96%87%E4%BD%BF%E7%94%A8%E7%9A%84%E7%89%88%E6%9C%AC%EF%BC%88V0.2%EF%BC%89%E4%B8%8D%E5%B1%9E%E4%BA%8E%E6%9C%80%E6%96%B0%E7%89%88%EF%BC%8C%E6%9C%89%E4%BA%9B%E4%B8%8D%E5%90%8C%EF%BC%8C%E4%BD%86%E5%A4%A7%E4%BD%93%E4%B8%80%E8%87%B4%E3%80%82">https://github.com/kubernetes-sigs/cluster-api-provider-aws。由此创建集群的过程涉及到以下几个CRD：machine、cluster、kubeadmconfig、awsmachine、awscluster。其中，awsmachine、awscluster是capa（cluster-api-provider-aws）所管理的CRD。kubeadmconfig是capbk（cluster-api-bootstrap-provider-kubeadm）所管理的CRD。capbk项目地址为：https://github.com/kubernetes-sigs/cluster-api-bootstrap-provider-kubeadm。在最新版本里，capbk现已集成至cluster-api项目中，本文使用的版本（V0.2）不属于最新版，有些不同，但大体一致。</a></p>
-<p>下图是集群创建过程中各个项目中控制器通过CRD调协的示意图，</p>
+<p>在本文选择aws作为集群的provider（使用非原生，在基础上有所更改），该provider也是开源项目，GitHub地址为：<br><a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/cluster-api-provider-aws">https://github.com/kubernetes-sigs/cluster-api-provider-aws</a><br>由此创建集群的过程涉及到以下几个CRD：machine、cluster、kubeadmconfig、awsmachine、awscluster。其中，awsmachine、awscluster是capa（cluster-api-provider-aws）所管理的CRD。kubeadmconfig是capbk（cluster-api-bootstrap-provider-kubeadm）所管理的CRD。capbk项目地址为：<br><a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/cluster-api-bootstrap-provider-kubeadm">https://github.com/kubernetes-sigs/cluster-api-bootstrap-provider-kubeadm</a><br>在最新版本里，capbk现已集成至cluster-api项目中，本文使用的版本（V0.2）不属于最新版，有些不同，但大体一致。</p>
+<p>下图是集群创建过程中各个项目中控制器通过CRD调协的示意图，图最左边可以看到，集群创建的过程涉及两个集群：manager cluster和user cluster。管理集群中需部署capi（cluster-api）、capa、cabpk所负责的控制器，他们负责kubeadmconfig、cluster、machine这三个CRD。capa作为底层基础设施的provider负责请求用户集群实例的创建和初始化等，它的控制器负责awsmachine、awscluster这两个CRD（不同的provider对应不同的CRD，machine和cluster对象中的provider字段会将其关联）</p>
 <p><img src="%E6%8E%A7%E5%88%B6%E5%99%A8%E5%8D%8F%E5%90%8C%E5%B7%A5%E4%BD%9C%E7%A4%BA%E6%84%8F%E5%9B%BE.png"></p>
-<p>整个过程分为6个阶段（新版本是7个阶段），如图右上角所示，分别为：</p>
-<ol>
-<li><p>集群基础设施的构建</p>
-</li>
-<li><p>主节点机器bootstrap</p>
-</li>
-<li><p>主节点机器基础设施构建</p>
-</li>
-<li><p>获取集群kubeconfig</p>
-</li>
-<li><p>绑定机器基础设施信息</p>
-</li>
-<li><p>完成集群控制面的构建</p>
-</li>
-</ol>
+<p>整个过程分为6个阶段，各个阶段的执行依赖于各资源对象的字段的设置。具体地，如图右上角所示，阶段分别为：</p>
+<p><strong>1. 集群基础设施的构建</strong></p>
+<pre><code>在全过程开始之前，集群的基础设施字段的状态是not ready的，cluster对象会根据awscluster的ready状态而设置，而awscluster只有在集群的基础设置构建完成后才会设置。集群的设施包括网络设置、跳板机设置、安全组设置、ELB创建、endpoint创建等。集群基础设施的创建是通过aws api完成的。</code></pre>
+<p><strong>2. 主节点机器bootstrap</strong></p>
+<pre><code>kubeadmconfig对应的控制器会等待cluster对象基础设施设置完成，在管理集群用户相应的命名空间内创建各种以secret形式存在的证书，包括ca证书、etcd证书等，执行完成后kubeadmconfig对象的status.ready字段和status.bootstrapData字段将被填充。而machine对象的相应字段也会根据kubeadmconfig的刚刚填充的字段进行填充，之后，将作为可以进行下一步动作的依据。</code></pre>
+<p><strong>3. 主节点机器基础设施构建</strong></p>
+<pre><code>执行这一步的前提是machine的bootstrapData已被填充，以及cluster的基础设施设置完成。awsmachine会根据自身对象创建时yaml渲染创建相应实例，并对elbID进行主节点实例的绑定。最后完成步骤后，将awsmachine字段的providerID根据aws创建的结果进行设置，并设置machine的基础设施已经设置完成。</code></pre>
+<p><strong>4. 获取集群kubeconfig</strong></p>
+<pre><code>这一步其实是可以和第3步同时进行的，二者不存在依赖关系。当第2步bootstrap把证书生成后，cluster生成用户空间的kubeconfig</code></pre>
+<p><strong>5. 绑定机器基础设施信息</strong></p>
+<pre><code>kubeconfig获取后，可以得到用户集群的client对象，machine对应的控制器将校验machine中的providerID与用户集群真正的providerID是否相同，相同则设置nodeRef，nodeRef包含了该node的相关信息，包括kind、APIversion、name、uid。</code></pre>
+<p><strong>6. 完成集群控制面的构建</strong></p>
+<pre><code>当主节点的nodeRef被设置后，将cluster的控制面初始化完成状态设为true</code></pre>
+<p>本文主要介绍了集群控制面创建过程，以及各个控制器协调运转的逻辑。work节点的加入涉及的控制器间的调协就没有这么复杂，有时间再详解。</p>
 
     </div>
 
