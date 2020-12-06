@@ -260,7 +260,7 @@
       <span class="post-meta-item-text">Posted on</span>
       
 
-      <time title="Created: 2020-12-06 12:56:23 / Modified: 13:06:59" itemprop="dateCreated datePublished" datetime="2020-12-06T12:56:23+08:00">2020-12-06</time>
+      <time title="Created: 2020-12-06 12:56:23 / Modified: 13:09:33" itemprop="dateCreated datePublished" datetime="2020-12-06T12:56:23+08:00">2020-12-06</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -290,43 +290,14 @@
 <li><p><strong>CNI的本质</strong>。本质是一种<code>接口</code>。它意味着只要插件正确实现该接口，就可以保证集群的容器网络打通。</p>
 </li>
 </ol>
-<h4 id="网络连通"><a href="#网络连通" class="headerlink" title="网络连通"></a>网络连通</h4><p>首先，不论是对于物理机、虚拟机还是容器，网络连通性的建立需要两方面的工作：</p>
-<ol>
-<li><p>实例拥有完整的网络栈</p>
-</li>
-<li><p>不同的实例间具有通信的能力</p>
-</li>
-</ol>
-<p>对于k8s来说，这里的实例就是Pod。一个pod需要完整的网络栈，pod的infra container会创建一个network namespace，pod里的容器都加入到这个namespace中，共享这个网络栈。除此之外，实现通信还需要网络设备的协助。对于pod这种情况，我们有多种方式给它提供通信的功能：1. 最直接的方式，宿主机拥有多张物理网卡，通过某种方式将其中一张分配给pod。此时，不同pod的通信流为：pod1 -&gt; network interface (node1) -&gt; network interface (node2) -&gt; pod2 [跨主机情况下] 。这样容器的IP就是对应网卡的IP。然而，这种方式在现实中没有使用的，太过浪费资源，而且十分不灵活。我们通常把它放在软件层面上来实现。这就引出了虚拟设备。2. veth、网桥、虚拟交换机等保证容器的连通。而ip可以通过ipam组件分发。CNI插件的实现内容就是利用虚拟网络设备打通容器之间的连通性，再利用IPAM给Pod分配IP。对于不同的容器网络方案有着不同的网络拓扑，但是无论哪种网络方案它的根本目的都是连通pod网络。</p>
-<h4 id="接口的实现与调用"><a href="#接口的实现与调用" class="headerlink" title="接口的实现与调用"></a>接口的实现与调用</h4><ul>
-<li>接口的实现</li>
-</ul>
-<p>CNI插件是被kubelet调用进而实现的容器网络方案。要真正被kubelet调用、把网络打通，开发者需要实现kubernetes规定的接口。</p>
-<p>在介绍接口之前，首先明确在K8S中Pod的网络创建流程：</p>
-<ol>
-<li>每个 Pod 除了创建时指定的容器外，都有一个 Kubelet 启动时指定的基础容器infra container。</li>
-<li>Kubelet 创建infra container，生成 Network Namespace。</li>
-<li>Kubelet 调用网络 CNI插件。</li>
-<li>CNI 插件给infra容器配置网络。</li>
-<li>Pod 中其他的容器共享基础容器的网络。</li>
-</ol>
-<p>在这5步中，CNI需要实现的内容就是4.给基础容器配置网络。保证网络连通性需要建立网络栈并连通pod。具体地实现内容就是在CNI插件中给infra容器分配ip、连通网络等，就如上文中提到的一样。在这一部分，我们关注第4步中，CNI插件是如何与kublet交互的。</p>
-<p>无论是哪种接口，我们在实现或使用接口时关注的是输入与输出，对于CNI，即是参数与返回值。</p>
-<p>CNI插件种类有很多，官方文档都有列出。不论是哪种插件，它需要实现两个func，一个是cmdAdd，表示创建容器时的操作；另一个是cmdDel，对应删除容器时的操作。开发者需要实现这两个func，并在插件的main函数中，调用skel.PluginMain(cmdAdd, cmdDel, version.All)</p>
-<p>Kubelet会将以下变量作为参数传给CNI插件，cmdAdd利用它们去建立网络栈并打通容器网络，cmdDel利用它们进行删除容器网络栈等操作。参数包括：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">CmdArg </span><br><span class="line">&#123;</span><br><span class="line">	ContainerID 	string &#x2F;&#x2F; infra容器ID</span><br><span class="line">	Netns		string &#x2F;&#x2F; network namespace 路径</span><br><span class="line">	Ifname		string &#x2F;&#x2F; 容器内网卡的名字</span><br><span class="line">	Path		string &#x2F;&#x2F; CNI插件的路径</span><br><span class="line">	Args		string &#x2F;&#x2F; 其他参数</span><br><span class="line">	Stdindata	[]byte &#x2F;&#x2F; network configuration</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>其中，Stdindata是CNI开发者的配置文件内容的编码，通过启动kubelet时指定路径的方式让CNI插件获取，CNI插件获取后需解码json。其余的参数是kubelet通过设置环境变量来提供给CNI插件的。其中Args是其他参数，是string类型，它是由多组键值对构成，形式如下: “k1=v1;k2=v2;…”</p>
-<p>对于返回值，cmdAdd\cmdDel返回error类型，在执行正常情况下，这个error实际上是由types.Result转化而成，types.Result包含了IP、GW等信息。</p>
-<ul>
-<li>接口的调用</li>
-</ul>
-<p>我们实现了接口，有时候需要调用自己实现的CNI插件，比如实现main插件时需要调用IPAM去分配IP。这时使用：</p>
-<p>invoke.DelegateAdd(delegatePlugin string, netconf []byte) (types.Result, error)</p>
-<p>删除时调用：</p>
-<p>invoke.DelegateDel(delegatePlugin string, netconf []byte) (types.Result, error)</p>
-<p>其中，delegatePlugin是插件名称，netconf是配置文件内容，同CmdArg中的Stdindata。</p>
-
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2020/12/06/%E7%90%86%E8%A7%A3K8S-CNI/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 

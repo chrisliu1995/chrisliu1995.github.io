@@ -22,15 +22,15 @@
     var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"8.0.0-rc.5","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}};
   </script>
 
-  <meta name="description" content="CNI全称为container network interface，是面向kubernetes的容器网络接口。 对于CNI的理解，我认为最重要的有两点：  CNI的目的。目的是连通Pod网络，使pod实现同主机&#x2F;跨主机的通信，即保证连通性。  CNI的本质。本质是一种接口。它意味着只要插件正确实现该接口，就可以保证集群的容器网络打通。   网络连通首先，不论是对于物理机、虚拟机还是容器，网络连通性">
+  <meta name="description" content="CNI全称为container network interface，是面向kubernetes的容器网络接口。 对于CNI的理解，我认为最重要的有两点：  CNI的目的。目的是连通Pod网络，使pod实现同主机&#x2F;跨主机的通信，即保证连通性。  CNI的本质。本质是一种接口。它意味着只要插件正确实现该接口，就可以保证集群的容器网络打通。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="理解K8S CNI">
 <meta property="og:url" content="http://yoursite.com/2020/12/06/%E7%90%86%E8%A7%A3K8S-CNI/index.html">
 <meta property="og:site_name" content="Chris&#39; blog">
-<meta property="og:description" content="CNI全称为container network interface，是面向kubernetes的容器网络接口。 对于CNI的理解，我认为最重要的有两点：  CNI的目的。目的是连通Pod网络，使pod实现同主机&#x2F;跨主机的通信，即保证连通性。  CNI的本质。本质是一种接口。它意味着只要插件正确实现该接口，就可以保证集群的容器网络打通。   网络连通首先，不论是对于物理机、虚拟机还是容器，网络连通性">
+<meta property="og:description" content="CNI全称为container network interface，是面向kubernetes的容器网络接口。 对于CNI的理解，我认为最重要的有两点：  CNI的目的。目的是连通Pod网络，使pod实现同主机&#x2F;跨主机的通信，即保证连通性。  CNI的本质。本质是一种接口。它意味着只要插件正确实现该接口，就可以保证集群的容器网络打通。">
 <meta property="og:locale" content="en_US">
 <meta property="article:published_time" content="2020-12-06T04:56:23.000Z">
-<meta property="article:modified_time" content="2020-12-06T05:06:59.194Z">
+<meta property="article:modified_time" content="2020-12-06T05:09:33.867Z">
 <meta property="article:author" content="Chris Liu">
 <meta property="article:tag" content="kubernetes">
 <meta name="twitter:card" content="summary">
@@ -266,7 +266,7 @@
       <span class="post-meta-item-text">Posted on</span>
       
 
-      <time title="Created: 2020-12-06 12:56:23 / Modified: 13:06:59" itemprop="dateCreated datePublished" datetime="2020-12-06T12:56:23+08:00">2020-12-06</time>
+      <time title="Created: 2020-12-06 12:56:23 / Modified: 13:09:33" itemprop="dateCreated datePublished" datetime="2020-12-06T12:56:23+08:00">2020-12-06</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -296,6 +296,8 @@
 <li><p><strong>CNI的本质</strong>。本质是一种<code>接口</code>。它意味着只要插件正确实现该接口，就可以保证集群的容器网络打通。</p>
 </li>
 </ol>
+<a id="more"></a>
+
 <h4 id="网络连通"><a href="#网络连通" class="headerlink" title="网络连通"></a>网络连通</h4><p>首先，不论是对于物理机、虚拟机还是容器，网络连通性的建立需要两方面的工作：</p>
 <ol>
 <li><p>实例拥有完整的网络栈</p>
