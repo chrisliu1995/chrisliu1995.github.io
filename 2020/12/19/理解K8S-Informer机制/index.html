@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//unpkg.com/@fortawesome/fontawesome-free@5.14.0/css/all.min.css">
+  <link rel="stylesheet" href="//unpkg.com/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"8.0.0-rc.5","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}};
+  </script>
+
+  <meta name="description" content="本文重点关注于K8S Informer的意义和原理，同时分析了Informer的架构与内部逻辑。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="理解K8S Informer机制">
+<meta property="og:url" content="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/index.html">
+<meta property="og:site_name" content="Chris&#39; blog">
+<meta property="og:description" content="本文重点关注于K8S Informer的意义和原理，同时分析了Informer的架构与内部逻辑。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/Informer%E7%BB%93%E6%9E%84%E7%A4%BA%E6%84%8F%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/Informer%E7%BB%84%E4%BB%B6%E5%85%B3%E7%B3%BB%E7%A4%BA%E6%84%8F%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/threadSafeStore.png">
+<meta property="og:image" content="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/delta_fifo.png">
+<meta property="og:image" content="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/dataflow.png">
+<meta property="article:published_time" content="2020-12-19T11:36:45.000Z">
+<meta property="article:modified_time" content="2020-12-22T09:38:19.603Z">
+<meta property="article:author" content="Chris Liu">
+<meta property="article:tag" content="kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/Informer%E7%BB%93%E6%9E%84%E7%A4%BA%E6%84%8F%E5%9B%BE.png">
+
+
+<link rel="canonical" href="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/">
+
+
+<script data-pjax class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>理解K8S Informer机制 | Chris' blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Chris' blog</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%8EK8S%E8%AE%BE%E8%AE%A1%E7%90%86%E5%BF%B5%E8%AF%B4%E8%B5%B7%EF%BC%8C%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81Informer"><span class="nav-number">1.</span> <span class="nav-text">从K8S设计理念说起，为什么需要Informer</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AE%80%E4%BB%8BList-amp-Watch"><span class="nav-number">2.</span> <span class="nav-text">简介List&amp;Watch</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AF%A6%E8%BF%B0Informer"><span class="nav-number">3.</span> <span class="nav-text">详述Informer</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Informer-%E5%86%85%E9%83%A8%E9%83%BD%E6%9C%89%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="nav-number">3.1.</span> <span class="nav-text">Informer 内部都有什么？</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Indexer"><span class="nav-number">3.1.1.</span> <span class="nav-text">Indexer</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Delta-fifo"><span class="nav-number">3.1.2.</span> <span class="nav-text">Delta_fifo</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Informer-%E5%90%AF%E5%8A%A8%E6%97%B6%E9%83%BD%E5%81%9A%E4%BA%86%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="nav-number">3.2.</span> <span class="nav-text">Informer 启动时都做了什么？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Informer-%E5%90%AF%E5%8A%A8%E5%90%8E%E6%95%B0%E6%8D%AE%E6%98%AF%E6%80%8E%E4%B9%88%E6%B5%81%E5%8A%A8%E7%9A%84%EF%BC%9F"><span class="nav-number">3.3.</span> <span class="nav-text">Informer 启动后数据是怎么流动的？</span></a></li></ol></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Chris Liu</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </section>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+      
+
+      
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Chris Liu">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chris' blog">
+    </span>
+
+    
+    
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          理解K8S Informer机制
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-12-19 19:36:45" itemprop="dateCreated datePublished" datetime="2020-12-19T19:36:45+08:00">2020-12-19</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">Edited on</span>
+        <time title="Modified: 2020-12-22 17:38:19" itemprop="dateModified" datetime="2020-12-22T17:38:19+08:00">2020-12-22</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E5%9F%BA%E7%A1%80%E6%9E%B6%E6%9E%84/" itemprop="url" rel="index"><span itemprop="name">基础架构</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>本文重点关注于K8S Informer的意义和原理，同时分析了Informer的架构与内部逻辑。</p>
+<a id="more"></a>
+
+<h3 id="从K8S设计理念说起，为什么需要Informer"><a href="#从K8S设计理念说起，为什么需要Informer" class="headerlink" title="从K8S设计理念说起，为什么需要Informer"></a>从K8S设计理念说起，为什么需要Informer</h3><p>关于K8S的设计理念，耳熟能详的概念有很多，比如</p>
+<ul>
+<li>声明式API</li>
+<li>最终一致性</li>
+<li>水平触发</li>
+<li>资源对象</li>
+<li>…</li>
+</ul>
+<p>与此相对的，是边缘触发的、基于命令式API的设计模式</p>
+<p>这里提到的水平触发、边缘触发是电子里关于电信号的概念。它的具体理念可以阅读这篇文章，讲解的非常清晰：<a target="_blank" rel="noopener" href="https://blog.csdn.net/dfsgwe1231/article/details/105993403">https://blog.csdn.net/dfsgwe1231/article/details/105993403</a></p>
+<p>其实在我看来，这些概念都有紧密的相关性，对K8S的设计理念是一脉相承的。如果用一句话来表达我对K8S设计理念的理解，应该是：</p>
+<p><code>Kubernetes 以声明式API这种请求形式、凭借控制器模式这种方法、达到了所控制的对象期待状态与真实状态最终一致的目的。整个过程体现了水平触发的思想。</code></p>
+<p>用直白的语言来讲就是，“我得知道你现在是什么样的，我好对比你要应该的样子，然后再做出进一步的动作。最终把你变成你应该成为的样子。”这里“我”就是kubernetes，更准确来说是控制器，“你”就是API对象（资源对象）。而边缘触发其实就是，“我得知道你现在让我干什么，我知道了马上去干。”</p>
+<p>说些题外话，这样对比两种设计模式我们可以很直观感受到，K8S的设计模式中在事件通知后，动作执行前这段过程里留出了很多的“空间”。这些空间可以是：</p>
+<ul>
+<li><p>容错空间</p>
+<p>即使之前某次事件通知失败，由于我关注的是最终一致性，我依然可以根据对象最新的状态去做相应的操作。</p>
+</li>
+<li><p>拓展空间</p>
+<p>只要能拿到不同对象的当前状态，我就可以根据这些信息做更多更加复杂、灵活的操作。而不是针对事件结果堆叠调用链，导致组件设计困难或考虑不周的概率增加。</p>
+</li>
+</ul>
+<p>话说回来，Informer 在这套设计理念中起到了什么作用呢？那就是，<code>通知“我”（控制器） 现在“你”（API对象）是什么样的。</code>Informer 把资源对象的现在的样子告知给控制器，控制器根据对象当前状态对比期望状态后作出相应操作。</p>
+<p>现在问题又来了，Informer是怎么知道资源对象现在的状态呢？这里涉及到一个K8S中很重要的机制——List &amp; Watch。</p>
+<h3 id="简介List-amp-Watch"><a href="#简介List-amp-Watch" class="headerlink" title="简介List&amp;Watch"></a>简介List&amp;Watch</h3><p>首先抛开List&amp;Watch机制，我们先回顾一下，解析到目前为止我们的需求是什么？<code>——获取资源当前的状态。</code></p>
+<p>我们都知道对象是存储在etcd中的，K8S中唯一与etcd交互的组件是APIserver。获取资源状态的最直接简单的方式就是向APIserver发送请求，返回当前的资源对象。然而这种方式极大的增加了APIserver的负载压力，请求的及时性并不能保证。但是，List&amp;Watch可以避免这个问题。</p>
+<p>List&amp;Watch实际上是两个方法——list func 和 watch func。list很容易理解，就是上述请求一次返回一次状态的方法。而watch func是客户端向APIserver建立一次http长连接请求，服务端返回一个header带有“Transfer-Encoding”:“chunked”的http response。每当服务端数据有变化，会把该对象发送给客户端，然后客户端将其以事件这种数据结构为载体送进K8S系统中来。</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 事件的数据结构</span><br><span class="line">type Event struct &#123;</span><br><span class="line">  Type EventType</span><br><span class="line">  Object runtime.Object</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>现在问题又来了，Informer知道资源对象现在的状态，是如何把它告知给控制器的呢？下面通过描绘系统数据流的形式来详细讲述Informer的内部结构与实现逻辑。</p>
+<h3 id="详述Informer"><a href="#详述Informer" class="headerlink" title="详述Informer"></a>详述Informer</h3><h4 id="Informer-内部都有什么？"><a href="#Informer-内部都有什么？" class="headerlink" title="Informer 内部都有什么？"></a>Informer 内部都有什么？</h4><p>下图是Informer结构的示意图，从图中可以看到各个组件的关系。Informer最基础的三个组件是ListerWatcher、Delta_fifo、Indexer。</p>
+<p><img src="Informer%E7%BB%93%E6%9E%84%E7%A4%BA%E6%84%8F%E5%9B%BE.png"></p>
+<p>其中，<code>ListerWatcher</code>如前文提到的，拥有 list 和 watch 两个func，用来获取事件（Event），得到的Event将被<code>Reflector</code>处理，处理得到的结果将以<code>Delta</code>的形式进入到Delta_fifo中。<code>Delta_fifo</code>是一个队列，它由<code>Controller</code>控制（注意：这里的Controller与前文提到的K8S控制器模式中的控制器并不相同）。Delta从队列中pop出后将会被<code>processer</code>处理，处理包括两方面：1.对象的变更同步到Indexer中，<code>Indexer</code>是一个用来存储资源对象并自带索引功能的本地存储；2.调用回调函数执行Add、Update、Delete这些Informer用户自定义的操作，这样Informer的使用者———也就是控制器可以通过回调函数去调协达到最终一致性。以上介绍了Informer中各个组件的关系，下图是一个抽象的关系示意图可以帮助理解。红线表明了数据的流向。</p>
+<p><img src="Informer%E7%BB%84%E4%BB%B6%E5%85%B3%E7%B3%BB%E7%A4%BA%E6%84%8F%E5%9B%BE.png"></p>
+<p>接下来，我们重点了解Informer内部的<code>Indexer</code>与<code>Delta_fifo</code>的运转机制。之后再去熟悉Informer的运行流程和逻辑就会轻松很多。</p>
+<h5 id="Indexer"><a href="#Indexer" class="headerlink" title="Indexer"></a>Indexer</h5><p>在K8S中，所有的数据结构都是实现的接口（interface{}），Indexer就是一种接口，而在Informer中，实现Indexer接口的struct就是<code>threadSafeStore</code>。我们从两个方面——成员及方法来认识这个struct。</p>
+<ol>
+<li>数据结构</li>
+</ol>
+<p>threadSafeStore包含两个部分，一个是KeyFunc，另一个是threadSafeMap。<code>Keyfunc</code>是通过object得到Key的方法，由使用者自定义完成，也可以使用默认的Keyfunc，默认的KeyFunc将对象的{namespace}/{name}作为Key，Informer就是使用的默认KeyFunc。而从下图中可以看出threadSafeMap是由5个相互关联的map组成的。其中，</p>
+<p><img src="threadSafeStore.png"></p>
+<ul>
+<li><code>items</code>是存储对象的map，每一个键对应着一个对象。它也是threadSafeMap最主要的数据结构。</li>
+<li><code>IndexFunc</code>同KeyFunc一样也是开放的接口函数。使用者通过对object进行自定义的计算而得到<code>Indexedvalue</code>列表。</li>
+<li><code>indexers</code>这个map将indexname与indexFunc绑定起来，这样一来直接通过indexname就可以得到相应的IndexFunc。这里的<code>indexname</code>是由Indexer使用者指定的索引名字，起到一个代表性的作用，通过这个索引名字，以及indices map，我们可以得到<code>index</code>表。</li>
+<li><code>index</code> map，通过<code>indexvalue</code>得到key set，也就是满足IndexFunc筛选后的所有key。</li>
+<li><code>set.string</code>类型的key set是一个string集合，没有重复的元素，它底层是使用值为空的map实现的。</li>
+</ul>
+<ol start="2">
+<li>方法</li>
+</ol>
+<p>在介绍成员变量的过程中，访问threadSafeStore的内部逻辑越加清晰，根据Indexname与IndexedValue两个输入终可得到object。在这里，我以Add为例，重点讲述建立索引的过程。Update、Delete大同小异。</p>
+<ul>
+<li>输入：object（资源对象）</li>
+<li>返回：无</li>
+<li>内部逻辑：<ol>
+<li>通过keyFunc计算得到key，在这里输入object的key即为{namespace}/{name}</li>
+<li>通过items map获取已经缓存的旧object</li>
+<li>更新items，将key对应到新的object</li>
+<li>如果旧object不为空，则从Indices中删除旧的object<ol>
+<li>遍历indexers map，通过indexFunc得到indexValues</li>
+<li>遍历indexValues，通过index map拿到set，删除set中的key</li>
+<li>如果发现set没有元素了，从index map中删除这个indexValue。</li>
+</ol>
+</li>
+<li>遍历indexers map，通过indexFunc得到indexValues</li>
+<li>通过indices map，拿到index。如果index为空，新建index，并将indexname与之绑定。</li>
+<li>遍历indexValues，通过index map拿到set，如果set为空新建set，并将indexValue与set绑定，不为空直接插入key。</li>
+</ol>
+</li>
+</ul>
+<p>整个过程也不难理解，实际上就是访问的逆过程。详细的代码如下所示：</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// k8s.io/client-go/tools/cache/thread_safe_store.go</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *threadSafeMap)</span> <span class="title">Add</span><span class="params">(key <span class="keyword">string</span>, obj <span class="keyword">interface</span>&#123;&#125;)</span></span> &#123;</span><br><span class="line">	c.lock.Lock()</span><br><span class="line">	<span class="keyword">defer</span> c.lock.Unlock()</span><br><span class="line">	oldObject := c.items[key]</span><br><span class="line">	c.items[key] = obj</span><br><span class="line">	c.updateIndices(oldObject, obj, key)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *threadSafeMap)</span> <span class="title">updateIndices</span><span class="params">(oldObj <span class="keyword">interface</span>&#123;&#125;, newObj <span class="keyword">interface</span>&#123;&#125;, key <span class="keyword">string</span>)</span></span> &#123;</span><br><span class="line">	<span class="comment">// if we got an old object, we need to remove it before we add it again</span></span><br><span class="line">	<span class="keyword">if</span> oldObj != <span class="literal">nil</span> &#123;</span><br><span class="line">		c.deleteFromIndices(oldObj, key)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">for</span> name, indexFunc := <span class="keyword">range</span> c.indexers &#123;</span><br><span class="line">		indexValues, err := indexFunc(newObj)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="built_in">panic</span>(fmt.Errorf(<span class="string">&quot;unable to calculate an index entry for key %q on index %q: %v&quot;</span>, key, name, err))</span><br><span class="line">		&#125;</span><br><span class="line">		index := c.indices[name]</span><br><span class="line">		<span class="keyword">if</span> index == <span class="literal">nil</span> &#123;</span><br><span class="line">			index = Index&#123;&#125;</span><br><span class="line">			c.indices[name] = index</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">for</span> _, indexValue := <span class="keyword">range</span> indexValues &#123;</span><br><span class="line">			set := index[indexValue]</span><br><span class="line">			<span class="keyword">if</span> set == <span class="literal">nil</span> &#123;</span><br><span class="line">				set = sets.String&#123;&#125;</span><br><span class="line">				index[indexValue] = set</span><br><span class="line">			&#125;</span><br><span class="line">			set.Insert(key)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *threadSafeMap)</span> <span class="title">deleteFromIndices</span><span class="params">(obj <span class="keyword">interface</span>&#123;&#125;, key <span class="keyword">string</span>)</span></span> &#123;</span><br><span class="line">	<span class="keyword">for</span> name, indexFunc := <span class="keyword">range</span> c.indexers &#123;</span><br><span class="line">		indexValues, err := indexFunc(obj)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="built_in">panic</span>(fmt.Errorf(<span class="string">&quot;unable to calculate an index entry for key %q on index %q: %v&quot;</span>, key, name, err))</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		index := c.indices[name]</span><br><span class="line">		<span class="keyword">if</span> index == <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">continue</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">for</span> _, indexValue := <span class="keyword">range</span> indexValues &#123;</span><br><span class="line">			set := index[indexValue]</span><br><span class="line">			<span class="keyword">if</span> set != <span class="literal">nil</span> &#123;</span><br><span class="line">				set.Delete(key)</span><br><span class="line"></span><br><span class="line">				<span class="comment">// If we don&#x27;t delete the set when zero, indices with high cardinality</span></span><br><span class="line">				<span class="comment">// short lived resources can cause memory to increase over time from</span></span><br><span class="line">				<span class="comment">// unused empty sets. See `kubernetes/kubernetes/issues/84959`.</span></span><br><span class="line">				<span class="keyword">if</span> <span class="built_in">len</span>(set) == <span class="number">0</span> &#123;</span><br><span class="line">					<span class="built_in">delete</span>(index, indexValue)</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h5 id="Delta-fifo"><a href="#Delta-fifo" class="headerlink" title="Delta_fifo"></a>Delta_fifo</h5><p>对于Delta_fifo，我们知道它是一个先进先出的队列，队列中具体的元素是Delta。现在我们利用解析Indexer同样的方法来解析Delta_fifo。</p>
+<ol>
+<li>数据结构</li>
+</ol>
+<p>如同我前文所说，K8S中运用了大量的接口，实际上，Delta_fifo与threadSafeStore本质上都是实现了Store这个接口。Delta_fifo的结构相对简单些，它结构的示意图如下。其中，</p>
+<p><img src="delta_fifo.png"></p>
+<ul>
+<li><p>在队列中核心数据是Delta。<code>Delta</code>包含两部分，一个是类型，另一个是对象（object）。Delta的类型包括：</p>
+  <figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	Added   DeltaType = <span class="string">&quot;Added&quot;</span></span><br><span class="line">	Updated DeltaType = <span class="string">&quot;Updated&quot;</span></span><br><span class="line">	Deleted DeltaType = <span class="string">&quot;Deleted&quot;</span></span><br><span class="line">	<span class="comment">// Replaced is emitted when we encountered watch errors and had to do a</span></span><br><span class="line">	<span class="comment">// relist. We don&#x27;t know if the replaced object has changed.</span></span><br><span class="line">	<span class="comment">//</span></span><br><span class="line">	<span class="comment">// <span class="doctag">NOTE:</span> Previous versions of DeltaFIFO would use Sync for Replace events</span></span><br><span class="line">	<span class="comment">// as well. Hence, Replaced is only emitted when the option</span></span><br><span class="line">	<span class="comment">// EmitDeltaTypeReplaced is true.</span></span><br><span class="line">	Replaced DeltaType = <span class="string">&quot;Replaced&quot;</span></span><br><span class="line">	<span class="comment">// Sync is for synthetic events during a periodic resync.</span></span><br><span class="line">	Sync DeltaType = <span class="string">&quot;Sync&quot;</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure></li>
+<li><p>Delta存放在一个数组里面，名为<code>Deltas</code>。一个Deltas对应一个资源对象，Deltas中的每个Delta蕴含着Event的动作，所以Deltas记录着这个资源对象一系列的变化。最新的对象在数组末尾，最旧的则是数组的第一个元素。</p>
+</li>
+<li><p><code>items</code>是一个map，其中的每个key对应着一个Deltas队列。</p>
+</li>
+<li><p><code>Queue</code>是一个包含了所有key的数组。</p>
+</li>
+<li><p><code>KeyFunc</code>与Indexer提到的KeyFunc一样，默认也是{namespace}/{name}的形式。</p>
+</li>
+<li><p>Delta_fifo还包含着一个成员叫<code>knownObjects</code>，Delta_fifo可以通过调用它的<code>ListKeys()</code>方法得到底层存储的所有Key，通过<code>GetByKey()</code>得到对应key的对象。在Informer中，这里的底层存储就是Indexer。</p>
+</li>
+</ul>
+<ol>
+<li>方法</li>
+</ol>
+<p>Delta_fifo比较重要的方法有以下几个</p>
+<ul>
+<li><p>Add\Update\Delete</p>
+<ul>
+<li>这几个放在一起是因为他们逻辑相似，大同小异。</li>
+<li>作用：向Delta_fifo加入一个Added\Updated\Deleted Delta。</li>
+<li>输入：object</li>
+<li>返回：无</li>
+<li>Add\Update 除了加入的Delta动作类型不一致以外，加入内部逻辑是一样的。而Delete方法在把包含Deleted动作的Delta加入至fifo里之前会检查这个对象的key是否既不存在于indexer缓存，也不存在于队列里，如果是的话则返回错误。</li>
+<li>Add\Update\Delete都调用<code>queueActionLocked</code>去执行加入Delta到队列的操作，下面重点介绍这个方法的逻辑。<ul>
+<li>输入：DeltaType (Added\Updated\Deleted); object</li>
+<li>输出：无</li>
+<li>内部逻辑：<ol>
+<li>根据KeyFunc得到object的key</li>
+<li>根据key通过items获取旧的Deltas，把新的Delta加到队列后面，形成新的Deltas</li>
+<li>对Deltas进行去重操作</li>
+<li>如果这个key的Deltas不存在，则queue数组增加一项新的key，加入末尾。</li>
+<li>在items新添加新的一项key与新deltas的绑定</li>
+</ol>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Replace</p>
+<ul>
+<li>作用：在初始化Delta_fifo时使用。Informer会通过list得到某资源下全部的对象，而Replace方法就可以把这些资源对象一次性装载至队列，并同步至Indexer。</li>
+<li>输入：object数组</li>
+<li>返回：无</li>
+<li>内部逻辑：<ol>
+<li>根据输入object数组的长度创建一个装载key的set keys（之前在Indexer部分提到的sets.string    ）</li>
+<li>遍历object数组，获取每个object的key，把key加入到keys这个集合中，同时利用之前提到的<code>queueActionLocked</code>把对象加入Delta到队列，值得一提的是这个DeltaType为<code>Replaced</code>。</li>
+<li>通过<code>knownObjects.ListKeys()</code>得到所有本地缓存中所有key</li>
+<li>遍历这些key，判断刚才创建的keys集合中有没有本地缓存的key，没有的话从本地缓存中拿到key对应的object，再次利用queueActionLocked把它加入到Delta_fifio中，这里的DeltaType为<code>Deleted</code>。意味着这个对象应该被删除。</li>
+</ol>
+</li>
+</ul>
+</li>
+<li><p>Resync</p>
+<ul>
+<li>作用：可以同步队列与本地存储</li>
+<li>输入：无</li>
+<li>输出：无</li>
+<li>内部逻辑：<ol>
+<li>通过<code>knownObjects.ListKeys()</code>得到所有Indexer本地缓存中所有key</li>
+<li>遍历这些key，先通过<code>knownObjects.GetByKey(key)</code>得到object，然后调用<code>queueActionLocked</code>新增delta进队列，此时的动作为<code>Sync</code></li>
+</ol>
+</li>
+</ul>
+</li>
+<li><p>Pop</p>
+<ul>
+<li>作用：</li>
+<li>输入：一个自定义的处理函数<code>ProcessFunc</code>，pop时会把出队列的deltas用这个方法处理</li>
+<li>输出：某一个deltas</li>
+<li>内部逻辑：<br>  死循环执行出队列操作，循环内逻辑如下：<ol>
+<li>通过queue数组拿到最旧的（下标为0）key，queue指针下移一位</li>
+<li>通过items map得到deltas，把它从items map中删除</li>
+<li>用ProcessFunc处理这个Deltas</li>
+</ol>
+</li>
+</ul>
+</li>
+</ul>
+<p>通过上述分析我们能看出来其实Delta_fifo并没有做具体地对资源对象做更新删除等操作，它更多是充当一个缓冲和转存的作用。资源对象的最新本地缓存是在Indexer中的，Indexer与etcd中存储的对象是保持状态一致的。</p>
+<h4 id="Informer-启动时都做了什么？"><a href="#Informer-启动时都做了什么？" class="headerlink" title="Informer 启动时都做了什么？"></a>Informer 启动时都做了什么？</h4><p>当Informer调用Run方法时，Informer启动，开始工作。Informer初始化的工作包括：</p>
+<ul>
+<li>初始化delta_fifo，指定其knownObjects为某一indexer（或指定空indexer）</li>
+<li>等待从delta_fifo队列pop，并等待用processer处理</li>
+<li>list，把list的结果用delta_fifo.replace方法放进delta_fifo</li>
+<li>list后进行watch，开始接收event</li>
+</ul>
+<h4 id="Informer-启动后数据是怎么流动的？"><a href="#Informer-启动后数据是怎么流动的？" class="headerlink" title="Informer 启动后数据是怎么流动的？"></a>Informer 启动后数据是怎么流动的？</h4><p>整个数据流我用一张图来表示，下面我来进行说明。</p>
+<p><img src="dataflow.png"></p>
+<ol>
+<li>在执行watch之前，从图中可以看到，reflector会把list的结果以replaced 类型先装载进delta_fifo，然后会对比对象本地缓存，以加入deleted delta的形式清理不应存在的对象缓存。</li>
+<li>执行watch后，event会被传送到event chan中，reflector可以从通道拿到event进行处理。将event转化为delta装载进delta_fifo。如果是新的资源对象，会新建deltas，如果是旧的资源，则会在已有的deltas后加入这个delta。</li>
+<li>队列pop时是将deltas取出，循环遍历deltas，拿到delta依次进行处理。</li>
+<li>process会根据delta类型对本地对象缓存进行不同的操作。如果是deleted，则直接删除对应缓存；对于剩下的类型再判断delta中的对象是否存在于缓存中，若不存在就添加个新的对象，若存在则更新对应的对象。</li>
+</ol>
+<p>本文介绍了Informer存在的意义与其内部机制。对与Informer紧密相关的List&amp;Watch、K8S控制器机制没有进行详细的解释说明。对于这些部分，期待在未来作出分享。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/12/18/%E6%9B%B4%E6%94%B9K8S%E5%AE%B9%E5%99%A8%E8%BF%90%E8%A1%8C%E6%97%B6%E4%B8%BAcontainerd/" rel="prev" title="更改K8S容器运行时为containerd">
+                  <i class="fa fa-chevron-left"></i> 更改K8S容器运行时为containerd
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+  
+  
+  
+
+
+
+      
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      
+
+      
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="running"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Chris Liu</span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script src="//unpkg.com/animejs@3.2.0/lib/anime.min.js"></script>
+  <script src="//unpkg.com/@next-theme/pjax@0.4.0/pjax.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '.page-configurations',
+    '.main-inner',
+    '.post-toc-wrap',
+    '.languages',
+    '.pjax'
+  ],
+  analytics: false,
+  cacheBust: false,
+  scrollRestoration: false,
+  scrollTo: !CONFIG.bookmark.enable
+});
+
+document.addEventListener('pjax:success', () => {
+  pjax.executeScripts(document.querySelectorAll('script[data-pjax], .pjax script'));
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  const hasTOC = document.querySelector('.post-toc');
+  document.querySelector('.sidebar-inner').classList.toggle('sidebar-nav-active', hasTOC);
+  document.querySelector(hasTOC ? '.sidebar-nav-toc' : '.sidebar-nav-overview').click();
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+    <div class="pjax">
+  
+
+  
+
+    </div>
+</body>
+</html>
