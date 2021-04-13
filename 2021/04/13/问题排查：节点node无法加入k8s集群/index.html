@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//unpkg.com/@fortawesome/fontawesome-free@5.14.0/css/all.min.css">
+  <link rel="stylesheet" href="//unpkg.com/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"8.0.0-rc.5","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}};
+  </script>
+
+  <meta name="description" content="本文记录一次问题排查经历，问题简述为计算节点无法加入k8s集群">
+<meta property="og:type" content="article">
+<meta property="og:title" content="问题排查：节点node无法加入k8s集群">
+<meta property="og:url" content="http://yoursite.com/2021/04/13/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5%EF%BC%9A%E8%8A%82%E7%82%B9node%E6%97%A0%E6%B3%95%E5%8A%A0%E5%85%A5k8s%E9%9B%86%E7%BE%A4/index.html">
+<meta property="og:site_name" content="Chris&#39; blog">
+<meta property="og:description" content="本文记录一次问题排查经历，问题简述为计算节点无法加入k8s集群">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://yoursite.com/2021/04/13/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5%EF%BC%9A%E8%8A%82%E7%82%B9node%E6%97%A0%E6%B3%95%E5%8A%A0%E5%85%A5k8s%E9%9B%86%E7%BE%A4/iostat.png">
+<meta property="og:image" content="http://yoursite.com/2021/04/13/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5%EF%BC%9A%E8%8A%82%E7%82%B9node%E6%97%A0%E6%B3%95%E5%8A%A0%E5%85%A5k8s%E9%9B%86%E7%BE%A4/%E6%8A%93%E5%8C%85%E5%88%86%E6%9E%90%E8%BF%9E%E9%80%9A%E6%80%A7.png">
+<meta property="article:published_time" content="2021-04-13T12:04:35.000Z">
+<meta property="article:modified_time" content="2021-04-13T13:53:22.499Z">
+<meta property="article:author" content="Chris Liu">
+<meta property="article:tag" content="kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2021/04/13/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5%EF%BC%9A%E8%8A%82%E7%82%B9node%E6%97%A0%E6%B3%95%E5%8A%A0%E5%85%A5k8s%E9%9B%86%E7%BE%A4/iostat.png">
+
+
+<link rel="canonical" href="http://yoursite.com/2021/04/13/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5%EF%BC%9A%E8%8A%82%E7%82%B9node%E6%97%A0%E6%B3%95%E5%8A%A0%E5%85%A5k8s%E9%9B%86%E7%BE%A4/">
+
+
+<script data-pjax class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>问题排查：节点node无法加入k8s集群 | Chris' blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Chris' blog</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80%E6%AC%A1%E5%8A%A0%E5%85%A5%E5%A4%B1%E8%B4%A5"><span class="nav-number">1.</span> <span class="nav-text">第一次加入失败</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5%E8%BF%87%E7%A8%8B"><span class="nav-number">1.1.</span> <span class="nav-text">排查过程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5%E7%BB%93%E8%AE%BA"><span class="nav-number">1.2.</span> <span class="nav-text">排查结论</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%BA%8C%E6%AC%A1%E5%8A%A0%E5%85%A5%E5%A4%B1%E8%B4%A5"><span class="nav-number">2.</span> <span class="nav-text">第二次加入失败</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5%E8%BF%87%E7%A8%8B-1"><span class="nav-number">2.1.</span> <span class="nav-text">排查过程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5%E7%BB%93%E8%AE%BA-1"><span class="nav-number">2.2.</span> <span class="nav-text">排查结论</span></a></li></ol></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Chris Liu</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+          <span class="site-state-item-count">10</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </section>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+      
+
+      
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/04/13/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5%EF%BC%9A%E8%8A%82%E7%82%B9node%E6%97%A0%E6%B3%95%E5%8A%A0%E5%85%A5k8s%E9%9B%86%E7%BE%A4/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Chris Liu">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chris' blog">
+    </span>
+
+    
+    
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          问题排查：节点node无法加入k8s集群
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2021-04-13 20:04:35 / Modified: 21:53:22" itemprop="dateCreated datePublished" datetime="2021-04-13T20:04:35+08:00">2021-04-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E5%9F%BA%E7%A1%80%E6%9E%B6%E6%9E%84/" itemprop="url" rel="index"><span itemprop="name">基础架构</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>本文记录一次问题排查经历，问题简述为计算节点无法加入k8s集群</p>
+<a id="more"></a>
+
+<p>该问题的现象很直观，在计算节点上使用 kubeadm join 加入已拉起的k8s控制面失败。实际上，该问题出现了两次，两次原因并不相同。接下来将记录两次问题排查过程。</p>
+<h3 id="第一次加入失败"><a href="#第一次加入失败" class="headerlink" title="第一次加入失败"></a>第一次加入失败</h3><h4 id="排查过程"><a href="#排查过程" class="headerlink" title="排查过程"></a>排查过程</h4><p><strong>kubeadm 报错：</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F;...</span><br><span class="line"></span><br><span class="line">[kubelet-start] Starting the kubelet</span><br><span class="line">[kubelet-start] Waiting for the kubelet to perform the TLS Bootstrap...</span><br><span class="line">I0324 16:22:47.142677   53532 kubelet.go:168] [kubelet-start] preserving the crisocket information for the node</span><br><span class="line">I0324 16:22:47.142698   53532 patchnode.go:30] [patchnode] Uploading the CRI Socket information &quot;&#x2F;var&#x2F;run&#x2F;dockershim.sock&quot; to the Node API object &quot;k8s-azveyyhr8j-1616569139&quot; as an annotation</span><br><span class="line">[kubelet-check] Initial timeout of 40s passed.</span><br><span class="line">timed out waiting for the condition</span><br><span class="line">error uploading crisocket</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;join.runKubeletStartJoinPhase</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;join&#x2F;kubelet.go:170</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow.(*Runner).Run.func1</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow&#x2F;runner.go:234</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow.(*Runner).visitAll</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow&#x2F;runner.go:422</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow.(*Runner).Run</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow&#x2F;runner.go:207</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd.NewCmdJoin.func1</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;join.go:170</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra.(*Command).execute</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra&#x2F;command.go:826</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra.(*Command).ExecuteC</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra&#x2F;command.go:914</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra.(*Command).Execute</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra&#x2F;command.go:864</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app.Run</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;kubeadm.go:50</span><br><span class="line">main.main</span><br><span class="line">	_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;kubeadm.go:25</span><br><span class="line">runtime.main</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;tools&#x2F;org.jenkinsci.plugins.golang.GolangInstallation&#x2F;Go_1.14.7&#x2F;src&#x2F;runtime&#x2F;proc.go:203</span><br><span class="line">runtime.goexit</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;tools&#x2F;org.jenkinsci.plugins.golang.GolangInstallation&#x2F;Go_1.14.7&#x2F;src&#x2F;runtime&#x2F;asm_amd64.s:1373</span><br><span class="line">error execution phase kubelet-start</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow.(*Runner).Run.func1</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow&#x2F;runner.go:235</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow.(*Runner).visitAll</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow&#x2F;runner.go:422</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow.(*Runner).Run</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;phases&#x2F;workflow&#x2F;runner.go:207</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd.NewCmdJoin.func1</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;cmd&#x2F;join.go:170</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra.(*Command).execute</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra&#x2F;command.go:826</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra.(*Command).ExecuteC</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra&#x2F;command.go:914</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra.(*Command).Execute</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;github.com&#x2F;spf13&#x2F;cobra&#x2F;command.go:864</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app.Run</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;workspace&#x2F;cld-golang-almighty&#x2F;src&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;app&#x2F;kubeadm.go:50</span><br><span class="line">main.main</span><br><span class="line">	_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;cmd&#x2F;kubeadm&#x2F;kubeadm.go:25</span><br><span class="line">runtime.main</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;tools&#x2F;org.jenkinsci.plugins.golang.GolangInstallation&#x2F;Go_1.14.7&#x2F;src&#x2F;runtime&#x2F;proc.go:203</span><br><span class="line">runtime.goexit</span><br><span class="line">	&#x2F;home&#x2F;jenkins&#x2F;jenkins&#x2F;tools&#x2F;org.jenkinsci.plugins.golang.GolangInstallation&#x2F;Go_1.14.7&#x2F;src&#x2F;runtime&#x2F;asm_amd64.s:1373</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>初看报错，以为是kubelet使用的dockershim.sock有误，然而查看kubelet日志，发现并不如此。</p>
+<p><strong>kubelet日志如下：</strong></p>
+<p><code> cld-baremetal2-1007.i.nease.net kubelet[239987]: E0324 20:01:16.875779  239987 event.go:263] Server rejected event &#39;&amp;v1.Event&#123;TypeMeta:v1.TypeMeta&#123;Kind:&quot;&quot;, APIVersion:&quot;&quot;&#125;, ObjectMeta:v1.ObjectMeta&#123;Name:&quot;k8s-azveyyhr8j-1616569139.166f45823a45567e&quot;, GenerateName:&quot;&quot;, Namespace:&quot;default&quot;, SelfLink:&quot;&quot;, UID:&quot;&quot;, ResourceVersion:&quot;&quot;, Generation:0, CreationTimestamp:v1.Time&#123;Time:time.Time&#123;wall:0x0, ext:0, loc:(*time.Location)(nil)&#125;&#125;, DeletionTimestamp:(*v1.Time)(nil), DeletionGracePeriodSeconds:(*int64)(nil), Labels:map[string]string(nil), Annotations:map[string]string(nil), OwnerReferences:[]v1.OwnerReference(nil), Finalizers:[]string(nil), ClusterName:&quot;&quot;, ManagedFields:[]v1.ManagedFieldsEntry(nil)&#125;, InvolvedObject:v1.ObjectReference&#123;Kind:&quot;Node&quot;, Namespace:&quot;&quot;, Name:&quot;k8s-azveyyhr8j-1616569139&quot;, UID:&quot;k8s-azveyyhr8j-1616569139&quot;, APIVersion:&quot;&quot;, ResourceVersion:&quot;&quot;, FieldPath:&quot;&quot;&#125;, Reason:&quot;NodeHasSufficientMemory&quot;, Message:&quot;Node k8s-azveyyhr8j-1616569139 status is now: NodeHasSufficientMemory&quot;, Source:v1.EventSource&#123;Component:&quot;kubelet&quot;, Host:&quot;k8s-azveyyhr8j-1616569139&quot;&#125;, FirstTimestamp:v1.Time&#123;Time:time.Time&#123;wall:0xc00ee8543427367e, ext:20778571567, loc:(*time.Location)(0x6db9880)&#125;&#125;, LastTimestamp:v1.Time&#123;Time:time.Time&#123;wall:0xc00ee8543427367e, ext:20778571567, loc:(*time.Location)(0x6db9880)&#125;&#125;, Count:1, Type:&quot;Normal&quot;, EventTime:v1.MicroTime&#123;Time:time.Time&#123;wall:0x0, ext:0, loc:(*time.Location)(nil)&#125;&#125;, Series:(*v1.EventSeries)(nil), Action:&quot;&quot;, Related:(*v1.ObjectReference)(nil), ReportingController:&quot;&quot;, ReportingInstance:&quot;&quot;&#125;&#39;: &#39;the server was unable to return a response in the time allotted, but may still be processing the request (post events)&#39; (will not retry!)</code></p>
+<p>发现了kubelet发送自身节点信息的post请求并未及时被apiserver处理。再调高kubeadm日志等级仔细看kubeadm报错，认识到其实是kubeadm get node时失败，无法给node添加annotation造成的。</p>
+<p><strong>接下来看kube-apisever的日志：</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line">I0325 00:44:21.939539       1 httplog.go:90] POST &#x2F;api&#x2F;v1&#x2F;nodes: (1m0.00020487s) 504</span><br><span class="line">goroutine 6287634 [running]:</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;httplog.(*respLogger).recordStatus(0xc0076cd340, 0x1f8)</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;httplog&#x2F;httplog.go:217 +0xc8</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;httplog.(*respLogger).WriteHeader(0xc0076cd340, 0x1f8)</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;httplog&#x2F;httplog.go:196 +0x35</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;filters.(*baseTimeoutWriter).timeout(0xc00e12aa20, 0xc00c1505a0)</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;filters&#x2F;timeout.go:241 +0xb0</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;filters.(*timeoutHandler).ServeHTTP(0xc0068bae00, 0x4df1980, 0xc0076cd340, 0xc00e110200)</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;filters&#x2F;timeout.go:141 +0x2db</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;filters.WithWaitGroup.func1(0x4df1980, 0xc0076cd340, 0xc00e110100)</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;filters&#x2F;waitgroup.go:47 +0x113</span><br><span class="line">net&#x2F;http.HandlerFunc.ServeHTTP(0xc007486480, 0x4df1980, 0xc0076cd340, 0xc00e110100)</span><br><span class="line">	&#x2F;usr&#x2F;local&#x2F;Cellar&#x2F;go&#x2F;1.14.1&#x2F;libexec&#x2F;src&#x2F;net&#x2F;http&#x2F;server.go:2012 +0x44</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;endpoints&#x2F;filters.WithRequestInfo.func1(0x4df1980, 0xc0076cd340, 0xc00e110000)</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;endpoints&#x2F;filters&#x2F;requestinfo.go:39 +0x274</span><br><span class="line">net&#x2F;http.HandlerFunc.ServeHTTP(0xc0074864b0, 0x4df1980, 0xc0076cd340, 0xc00e110000)</span><br><span class="line">	&#x2F;usr&#x2F;local&#x2F;Cellar&#x2F;go&#x2F;1.14.1&#x2F;libexec&#x2F;src&#x2F;net&#x2F;http&#x2F;server.go:2012 +0x44</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;httplog.WithLogging.func1(0x4de4980, 0xc00aa19a40, 0xc00ed20900)</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;httplog&#x2F;httplog.go:89 +0x2b6</span><br><span class="line">net&#x2F;http.HandlerFunc.ServeHTTP(0xc0068bae20, 0x4de4980, 0xc00aa19a40, 0xc00ed20900)</span><br><span class="line">	&#x2F;usr&#x2F;local&#x2F;Cellar&#x2F;go&#x2F;1.14.1&#x2F;libexec&#x2F;src&#x2F;net&#x2F;http&#x2F;server.go:2012 +0x44</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;filters.withPanicRecovery.func1(0x4de4980, 0xc00aa19a40, 0xc00ed20900)</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;filters&#x2F;wrap.go:51 +0xe6</span><br><span class="line">net&#x2F;http.HandlerFunc.ServeHTTP(0xc0068bae40, 0x4de4980, 0xc00aa19a40, 0xc00ed20900)</span><br><span class="line">	&#x2F;usr&#x2F;local&#x2F;Cellar&#x2F;go&#x2F;1.14.1&#x2F;libexec&#x2F;src&#x2F;net&#x2F;http&#x2F;server.go:2012 +0x44</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server.(*APIServerHandler).ServeHTTP(0xc0074864e0, 0x4de4980, 0xc00aa19a40, 0xc00ed20900)</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;k8s.io&#x2F;apiserver&#x2F;pkg&#x2F;server&#x2F;handler.go:189 +0x51</span><br><span class="line">net&#x2F;http.serverHandler.ServeHTTP(0xc00b9f81c0, 0x4de4980, 0xc00aa19a40, 0xc00ed20900)</span><br><span class="line">	&#x2F;usr&#x2F;local&#x2F;Cellar&#x2F;go&#x2F;1.14.1&#x2F;libexec&#x2F;src&#x2F;net&#x2F;http&#x2F;server.go:2807 +0xa3</span><br><span class="line">net&#x2F;http.initALPNRequest.ServeHTTP(0x4df8880, 0xc008468750, 0xc00ac9ea80, 0xc00b9f81c0, 0x4de4980, 0xc00aa19a40, 0xc00ed20900)</span><br><span class="line">	&#x2F;usr&#x2F;local&#x2F;Cellar&#x2F;go&#x2F;1.14.1&#x2F;libexec&#x2F;src&#x2F;net&#x2F;http&#x2F;server.go:3381 +0x8d</span><br><span class="line">k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;golang.org&#x2F;x&#x2F;net&#x2F;http2.(*serverConn).runHandler(0xc00af4ec00, 0xc00aa19a40, 0xc00ed20900, 0xc00e9bb9a0)</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;golang.org&#x2F;x&#x2F;net&#x2F;http2&#x2F;server.go:2149 +0x8b</span><br><span class="line">created by k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;golang.org&#x2F;x&#x2F;net&#x2F;http2.(*serverConn).processHeaders</span><br><span class="line">	&#x2F;Users&#x2F;guohao&#x2F;workspace&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;_output&#x2F;local&#x2F;go&#x2F;src&#x2F;k8s.io&#x2F;kubernetes&#x2F;vendor&#x2F;golang.org&#x2F;x&#x2F;net&#x2F;http2&#x2F;server.go:1883 +0x4e1</span><br><span class="line"></span><br><span class="line">logging error output: &quot;&#123;\&quot;metadata\&quot;:&#123;&#125;,\&quot;status\&quot;:\&quot;Failure\&quot;,\&quot;message\&quot;:\&quot;Timeout: request did not complete within 1m0s\&quot;,\&quot;reason\&quot;:\&quot;Timeout\&quot;,\&quot;details\&quot;:&#123;&#125;,\&quot;code\&quot;:504&#125;\n&quot;</span><br><span class="line"> [kubelet&#x2F;v1.17.4 (linux&#x2F;amd64) kubernetes&#x2F;c77d808 10.212.200.153:54436]</span><br><span class="line">E0325 00:44:21.939634       1 status.go:71] apiserver received an error that is not an metav1.Status: http2.StreamError&#123;StreamID:0x2b, Code:0x0, Cause:error(nil)&#125;</span><br><span class="line">E0325 00:44:21.939715       1 writers.go:105] apiserver was unable to write a JSON response: http: Handler timeout</span><br><span class="line">E0325 00:44:21.940775       1 status.go:71] apiserver received an error that is not an metav1.Status: &amp;errors.errorString&#123;s:&quot;http: Handler timeout&quot;&#125;</span><br><span class="line">E0325 00:44:21.941866       1 writers.go:118] apiserver was unable to write a fallback JSON response: http: Handler timeout</span><br><span class="line">I0325 00:44:21.942969       1 trace.go:116] Trace[1159185362]: &quot;Create&quot; url:&#x2F;api&#x2F;v1&#x2F;nodes,user-agent:kubelet&#x2F;v1.17.4 (linux&#x2F;amd64) kubernetes&#x2F;c77d808,client:10.212.200.153 (started: 2021-03-25 00:43:21.939648409 +0000 UTC m&#x3D;+53607.307364629) (total time: 1m0.003294577s):</span><br><span class="line">Trace[1159185362]: [1m0.003294577s] [1m0.003294577s] END</span><br></pre></td></tr></table></figure>
+
+<p>发现apiserver处理/api/v1/nodes请求超时，返回504错误。超时问题与性能有关，最容易想到的是与apiserver紧密相关的etcd性能是否出现了问题。</p>
+<p>该集群中的etcd是以pod形式部署在master节点上的，通过kubectl logs查看etcd日志,发现出现大量的<code>read-only range request &quot;...&quot; took too long (xxxms) to execute</code> , 似乎是etcd性能出现了问题，执行一次操作需要上百ms。</p>
+<p>查看宿主机上的io性能，根据w_await字段发现磁盘的写速率很慢，相比线上正常集群相差百倍。</p>
+<p><img src="iostat.png"></p>
+<h4 id="排查结论"><a href="#排查结论" class="headerlink" title="排查结论"></a>排查结论</h4><p>由于宿主磁盘性能太差，导致etcd读写数据过慢，apisever处理计算节点上kubelet 发送的post请求超时。</p>
+<h3 id="第二次加入失败"><a href="#第二次加入失败" class="headerlink" title="第二次加入失败"></a>第二次加入失败</h3><p>更换宿主的磁盘后，解决了etcd的问题以及节点加入集群问题。但过了几天后又出现了相同的问题。</p>
+<h4 id="排查过程-1"><a href="#排查过程-1" class="headerlink" title="排查过程"></a>排查过程</h4><p>本次问题出现时，apiserver并没有504的报错，etcd也显示正常。kubelet 不断报错 <code>node &quot;k8s-6nvyddfp63-1617336023&quot; not found</code>,节点找不到。</p>
+<p>报错信息有限，开始艰难的调试排错之路，得到以下现象。</p>
+<ol>
+<li>绕过lbc，计算节点kubelet直接访问master，可以成功。</li>
+<li>使用lbc，重启master，可以成功，但经过一段时间后，重新加入的话会失败。</li>
+<li>分别在master、node上进行抓包分析。master上数据包都正常，node上出现一些<code>TCP DUP ACK</code>，初步判断是lbc数据包没有返回，导致数据包重传。</li>
+</ol>
+<p>结合1和3，该集群拓扑下的连通性应如图所示，蓝色代表正常，红色代表数据包有误，不返回。</p>
+<p><img src="%E6%8A%93%E5%8C%85%E5%88%86%E6%9E%90%E8%BF%9E%E9%80%9A%E6%80%A7.png"></p>
+<p>对于第二点，比较困惑，由于无法对机器初始化后有进行的操作具体化，只能从网络的角度比较了下重启前后的iptables。此时发现了问题的关键。</p>
+<p>机器重启后k8s相关的iptables规则清空，过了一段时间后kube-proxy启动，才将机器上的规则补充完毕。此时把问题聚焦在iptables，感觉master上的iptables有将数据包转发丢的嫌疑。逐条规则看，发现iptables中有一条请求重定向到lbc地址的规则，对应的svc是kubernetes svc，它的ClusterIP设置的就是lbc的地址。</p>
+<h4 id="排查结论-1"><a href="#排查结论-1" class="headerlink" title="排查结论"></a>排查结论</h4><p>真相大白，post请求从node出来后，经过lbc到达master节点，再由master的iptables规则转发到lbc上，lbc转发回realserver也就是master上，形成了闭环，导致请求无法返回给node，节点注册失败，那也就无法加入至k8s集群当中。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2021/01/28/K8S-controller-runtime-%E8%A7%A3%E6%9E%90/" rel="prev" title="K8S controller-runtime 解析">
+                  <i class="fa fa-chevron-left"></i> K8S controller-runtime 解析
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+  
+  
+  
+
+
+
+      
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      
+
+      
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="running"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Chris Liu</span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script src="//unpkg.com/animejs@3.2.0/lib/anime.min.js"></script>
+  <script src="//unpkg.com/@next-theme/pjax@0.4.0/pjax.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '.page-configurations',
+    '.main-inner',
+    '.post-toc-wrap',
+    '.languages',
+    '.pjax'
+  ],
+  analytics: false,
+  cacheBust: false,
+  scrollRestoration: false,
+  scrollTo: !CONFIG.bookmark.enable
+});
+
+document.addEventListener('pjax:success', () => {
+  pjax.executeScripts(document.querySelectorAll('script[data-pjax], .pjax script'));
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  const hasTOC = document.querySelector('.post-toc');
+  document.querySelector('.sidebar-inner').classList.toggle('sidebar-nav-active', hasTOC);
+  document.querySelector(hasTOC ? '.sidebar-nav-toc' : '.sidebar-nav-overview').click();
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+    <div class="pjax">
+  
+
+  
+
+    </div>
+</body>
+</html>

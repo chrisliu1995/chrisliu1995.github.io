@@ -35,7 +35,7 @@
 <meta property="og:image" content="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/delta_fifo.png">
 <meta property="og:image" content="http://yoursite.com/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/dataflow.png">
 <meta property="article:published_time" content="2020-12-19T11:36:45.000Z">
-<meta property="article:modified_time" content="2021-02-04T09:02:11.806Z">
+<meta property="article:modified_time" content="2021-02-04T09:14:25.694Z">
 <meta property="article:author" content="Chris Liu">
 <meta property="article:tag" content="kubernetes">
 <meta name="twitter:card" content="summary">
@@ -195,7 +195,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
           <a href="/archives">
-          <span class="site-state-item-count">9</span>
+          <span class="site-state-item-count">10</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
@@ -278,7 +278,7 @@
           <i class="far fa-calendar-check"></i>
         </span>
         <span class="post-meta-item-text">Edited on</span>
-        <time title="Modified: 2021-02-04 17:02:11" itemprop="dateModified" datetime="2021-02-04T17:02:11+08:00">2021-02-04</time>
+        <time title="Modified: 2021-02-04 17:14:25" itemprop="dateModified" datetime="2021-02-04T17:14:25+08:00">2021-02-04</time>
       </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -328,7 +328,7 @@
 <p>话说回来，Informer 在这套设计理念中起到了什么作用呢？那就是，<code>通知“我”（控制器） “你”（API对象）的期望状态是什么样的。</code>Informer 把资源对象的期待的样子告知给控制器，控制器根据对象当前状态对比期望状态后作出相应操作。</p>
 <p>现在问题又来了，Informer是怎么知道资源对象期望状态呢？这里涉及到一个K8S中很重要的机制——List &amp; Watch。</p>
 <h3 id="简介List-amp-Watch"><a href="#简介List-amp-Watch" class="headerlink" title="简介List&amp;Watch"></a>简介List&amp;Watch</h3><p>首先抛开List&amp;Watch机制，我们先回顾一下，解析到目前为止我们的需求是什么？<code>——获取资源状态。</code></p>
-<p>我们都知道对象是存储在etcd中的，K8S中唯一与etcd交互的组件是APIserver。获取资源状态的最直接简单的方式就是向APIserver发送请求，返回当前的资源对象。然而这种方式极大的增加了APIserver的负载压力，请求的及时性并不能保证。但是，List&amp;Watch可以避免这个问题。</p>
+<p>获取资源状态的最直接简单的方式就是向APIserver发送请求，返回当前的资源对象。然而这种方式极大的增加了APIserver的负载压力，请求的及时性并不能保证。但是，List&amp;Watch可以避免这个问题。</p>
 <p>List&amp;Watch实际上是两个方法——list func 和 watch func。list很容易理解，就是上述请求一次返回一次状态的方法。而watch func是客户端向APIserver建立一次http长连接请求，服务端返回一个header带有“Transfer-Encoding”:“chunked”的http response。每当服务端数据有变化，会把该对象发送给客户端，然后客户端将其以事件这种数据结构为载体送进K8S系统中来。</p>
   <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 事件的数据结构</span><br><span class="line">type Event struct &#123;</span><br><span class="line">  Type EventType</span><br><span class="line">  Object runtime.Object</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
