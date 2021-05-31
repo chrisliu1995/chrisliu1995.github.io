@@ -22,23 +22,26 @@
     var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"8.0.0-rc.5","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}};
   </script>
 
-  <meta name="description" content="controller-runtime是kubernetes相关的一个开源项目，用于构建k8s控制器。通常可与kubebuilder一起使用构建CRD以对应的自定义控制器。项目地址：https:&#x2F;&#x2F;github.com&#x2F;kubernetes-sigs&#x2F;controller-runtime">
+  <meta name="description" content="本文分析了v1.7.9与v1.12.4版本k8s调度器在调度pod时的时间消耗，并给出了在共享集群的情景下调度慢问题的解决方案。">
 <meta property="og:type" content="article">
-<meta property="og:title" content="K8S controller-runtime 解析">
-<meta property="og:url" content="http://yoursite.com/2021/01/28/K8S-controller-runtime-%E8%A7%A3%E6%9E%90/index.html">
+<meta property="og:title" content="k8s kube-scheduler 性能分析">
+<meta property="og:url" content="http://yoursite.com/2021/05/31/k8s-kube-scheduler-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90/index.html">
 <meta property="og:site_name" content="Chris&#39; blog">
-<meta property="og:description" content="controller-runtime是kubernetes相关的一个开源项目，用于构建k8s控制器。通常可与kubebuilder一起使用构建CRD以对应的自定义控制器。项目地址：https:&#x2F;&#x2F;github.com&#x2F;kubernetes-sigs&#x2F;controller-runtime">
+<meta property="og:description" content="本文分析了v1.7.9与v1.12.4版本k8s调度器在调度pod时的时间消耗，并给出了在共享集群的情景下调度慢问题的解决方案。">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="http://yoursite.com/2021/01/28/K8S-controller-runtime-%E8%A7%A3%E6%9E%90/controller-runtime.png">
-<meta property="article:published_time" content="2021-01-28T08:40:10.000Z">
-<meta property="article:modified_time" content="2021-02-04T09:05:49.470Z">
+<meta property="og:image" content="http://yoursite.com/2021/05/31/k8s-kube-scheduler-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90/trace%E4%BB%A3%E7%A0%81.png">
+<meta property="og:image" content="http://yoursite.com/2021/05/31/k8s-kube-scheduler-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90/trace%E6%88%AA%E5%9B%BE.png">
+<meta property="og:image" content="http://yoursite.com/2021/05/31/k8s-kube-scheduler-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90/%E4%BC%98%E9%80%89%E7%AE%97%E6%B3%95.png">
+<meta property="og:image" content="http://yoursite.com/2021/05/31/k8s-kube-scheduler-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90/%E9%A2%84%E9%80%89%E7%AE%97%E6%B3%95.png">
+<meta property="article:published_time" content="2021-05-31T07:41:18.000Z">
+<meta property="article:modified_time" content="2021-05-31T09:50:14.411Z">
 <meta property="article:author" content="Chris Liu">
 <meta property="article:tag" content="kubernetes">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://yoursite.com/2021/01/28/K8S-controller-runtime-%E8%A7%A3%E6%9E%90/controller-runtime.png">
+<meta name="twitter:image" content="http://yoursite.com/2021/05/31/k8s-kube-scheduler-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90/trace%E4%BB%A3%E7%A0%81.png">
 
 
-<link rel="canonical" href="http://yoursite.com/2021/01/28/K8S-controller-runtime-%E8%A7%A3%E6%9E%90/">
+<link rel="canonical" href="http://yoursite.com/2021/05/31/k8s-kube-scheduler-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90/">
 
 
 <script data-pjax class="page-configurations">
@@ -51,7 +54,7 @@
   };
 </script>
 
-  <title>K8S controller-runtime 解析 | Chris' blog</title>
+  <title>k8s kube-scheduler 性能分析 | Chris' blog</title>
   
 
 
@@ -178,7 +181,7 @@
 
       <!--noindex-->
       <section class="post-toc-wrap sidebar-panel">
-          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95"><span class="nav-number">1.</span> <span class="nav-text">使用方法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E5%AF%B9%E8%B1%A1%E6%A6%82%E8%A7%88"><span class="nav-number">2.</span> <span class="nav-text">数据对象概览</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E9%80%BB%E8%BE%91%E6%A2%B3%E7%90%86"><span class="nav-number">3.</span> <span class="nav-text">代码逻辑梳理</span></a></li></ol></div>
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E8%B0%83%E5%BA%A6%E6%97%A5%E5%BF%97"><span class="nav-number">2.</span> <span class="nav-text">查看调度日志</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%98%E9%80%89"><span class="nav-number">3.</span> <span class="nav-text">优选</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%A2%84%E9%80%89"><span class="nav-number">4.</span> <span class="nav-text">预选</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E8%A7%A3%E5%86%B3"><span class="nav-number">5.</span> <span class="nav-text">问题解决</span></a></li></ol></div>
       </section>
       <!--/noindex-->
 
@@ -240,7 +243,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/01/28/K8S-controller-runtime-%E8%A7%A3%E6%9E%90/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/05/31/k8s-kube-scheduler-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -256,7 +259,7 @@
     
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          K8S controller-runtime 解析
+          k8s kube-scheduler 性能分析
         </h1>
 
         <div class="post-meta-container">
@@ -266,16 +269,10 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">Posted on</span>
+      
 
-      <time title="Created: 2021-01-28 16:40:10" itemprop="dateCreated datePublished" datetime="2021-01-28T16:40:10+08:00">2021-01-28</time>
+      <time title="Created: 2021-05-31 15:41:18 / Modified: 17:50:14" itemprop="dateCreated datePublished" datetime="2021-05-31T15:41:18+08:00">2021-05-31</time>
     </span>
-      <span class="post-meta-item">
-        <span class="post-meta-item-icon">
-          <i class="far fa-calendar-check"></i>
-        </span>
-        <span class="post-meta-item-text">Edited on</span>
-        <time title="Modified: 2021-02-04 17:05:49" itemprop="dateModified" datetime="2021-02-04T17:05:49+08:00">2021-02-04</time>
-      </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
         <i class="far fa-folder"></i>
@@ -296,57 +293,60 @@
     
     
     <div class="post-body" itemprop="articleBody">
-        <p><code>controller-runtime</code>是kubernetes相关的一个开源项目，用于构建k8s控制器。通常可与kubebuilder一起使用构建CRD以对应的自定义控制器。项目地址：<br><a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/controller-runtime">https://github.com/kubernetes-sigs/controller-runtime</a></p>
+        <p>本文分析了v1.7.9与v1.12.4版本k8s调度器在调度pod时的时间消耗，并给出了在共享集群的情景下调度慢问题的解决方案。</p>
 <a id="more"></a>
 
-<h3 id="使用方法"><a href="#使用方法" class="headerlink" title="使用方法"></a>使用方法</h3><p>以下伪代码，忽略了细节</p>
+<h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>目前公司线上存在着一部分共享集群，即一个k8s集群多个业务方使用。在某些计算型业务大量创删pod时，我们发现集群调度性能很慢，一分钟调度50个左右的pod，单个pod需要调度1s以上的时间。这影响了其他业务的对于pod的创建。观察线上所有集群的pod调度时间，发现此情况只出现在v1.7.9版本的k8s集群。v1.12.4的性能看上去要优于v1.7.9。由此契机分析一下两个版本的调度性能差异，同时提出解决该问题的优化方案。</p>
+<h3 id="查看调度日志"><a href="#查看调度日志" class="headerlink" title="查看调度日志"></a>查看调度日志</h3><p>单独说下日志，因为调度器的日志有一定迷惑性。</p>
+<p>k8s中pod是依次调度的，对于调度一个pod超过100ms的情况，会生成5行日志。日志内容大致如下:</p>
+<ul>
+<li>Trace “scheduling pod namespaces/pod name” (started …)</li>
+<li>xxx [xxx ms] [xxx ms] Computing predicates</li>
+<li>xxx [xxx s] [xxx s] Prioritizing</li>
+<li>xxx [xxx s] [xxx ms] Selecting host</li>
+<li>xxx “Scheduling pod namespaces/pod name” [xxx s] [xxx ms] END</li>
+</ul>
+<p>其中，一行中的两个[ ]分别表示<code>该调度到此的总时间</code>以及<code>单独该阶段的时间</code>。单看这个日志，很容易认为第二行第二个[ ]表示的是预选过程的时间耗时，第三行是优选过程的时间耗时。然而实际却不是如此。</p>
+<p>查看trace代码发现，trace step的msg表示是与前一个计算时间间隔的结果</p>
+<p><img src="trace%E4%BB%A3%E7%A0%81.png"></p>
+<p>对比调度pod过程的打点日志，在这里Computing predicates是进入调度后，在预选前，也就是更新nodeinfo map的耗时；Prioritizing这一行的第二个 [ ] 内的时间才是预选的耗时时间；Selecting host这一行的第二个 [ ] 内的时间表示优选耗时；最后 END 这一行的时间是从优选打分列表挑选主机的耗时。</p>
+<p><img src="trace%E6%88%AA%E5%9B%BE.png"></p>
+<p>在我们的日志结果看，v1.7.9预选阶段耗时最长，长达1s以上，占用了大部分的时间。</p>
+<p>【注：看了一眼新的v1.21版本，日志已经清晰很多了，没有了这个问题】</p>
+<h3 id="优选"><a href="#优选" class="headerlink" title="优选"></a>优选</h3><p>由于最开始没有理清日志的含义，以为优选过程非常耗时，所以花了些时间分析优选过程。</p>
+<p>整体上，优选耗时的示意图如下：</p>
+<p>优选过程分为获取pod元数据(metadata)、优选函数计算、 求和(summarize)、以及额外的调度计算(extenders)这几个过程。</p>
+<p><img src="%E4%BC%98%E9%80%89%E7%AE%97%E6%B3%95.png"></p>
+<p>其中，</p>
+<ul>
+<li><p>获取pod元数据(metadata)会得到pod相关的信息，帮助接下来的一些优选函数去更快的完成计算。</p>
+</li>
+<li><p>优选函数包括七八个，有的是map reduce的方式计算，而有的是一体式直接得到该函数下的各节点的打分结果，代码中叫做Function。利用Function的算法与map reduce的算法是同时进行的。在map阶段，调度器会开启16个协程(若当前节点数目小于16则开启节点数个协程)同时处理不同的节点，处理一个节点时会循环遍历‍各个map函数，得到暂时的节点map结果。当处理完一个节点，该协程会去处理未被处理的下一个节点，直到所有节点被计算完毕。这样就得到了一个节点数与算法数为长度的二维数组。在reduce阶段，调度器会根据reduce的算法数目开启对应个数的协程，同时计算该算法下的所有node的打分结果，更新了刚才提到的这个二维数组。而Function实际上就是把通过一个整体的函数计算直接得到这个函数下的所有node的打分情况。举个列子，算法<code>SelectorSpreadPriority</code>目的是最小化同个节点上属于同一个svc或rc的pod数目，该算法在v1.7.9中是Fuction的形式，而在v.12.4中改造为了mapreduce的形式。但在时间效率方面没有差别，两个版本用相同的处理逻辑，也是用了16个协程同时处理不同的node。</p>
+</li>
+<li><p>当优选函数计算全部结束后，进入了求和阶段。求和阶段即为把二维数组中一个node下各个算法的结果结合权重相加，最终得到一个一维数组。</p>
+</li>
+<li><p>extenders它是用户额外自定的调度器，在一般情况下没有使用。</p>
+</li>
+</ul>
+<p>可以说，两个版本的优选算法在时间效率方面差不多。</p>
+<h3 id="预选"><a href="#预选" class="headerlink" title="预选"></a>预选</h3><p>预选过程是筛选节点，得到满足所有预选函数的节点列表，这里预选函数不同于优选函数，返回的是true或false，表示该node是否满足该预选条件。</p>
+<p>预选过程大致分为这几个阶段：获取pod元数据(metadata)、预选函数计算、以及额外的调度计算(extenders)。如下图所示：</p>
+<p><img src="%E9%A2%84%E9%80%89%E7%AE%97%E6%B3%95.png"></p>
+<p>其中，metadata与extender跟优选阶段的意义类似，不做详细说明。</p>
+<p>在预选主要的计算阶段，它的过程与优选的map类似。开启16个协程同时处理不同的node，协程在处理一个node时遍历所有的预算算法，最终得到该node是否通过预选的true/false结果。在这里，v1.7.9与v1.12.4的版本处理不同。主要有两处：</p>
 <ol>
-<li>构建一个reconciler</li>
-</ol>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">type reconcilerTest struct &#123;</span><br><span class="line">	client.Client</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<ol start="2">
-<li>重写Reconcile方法</li>
-</ol>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">func (r *reconcilerTest) Reconcile(req controllers.Request) (controllers.Result, error) &#123;</span><br><span class="line">    &#x2F;&#x2F; …</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<ol start="3">
-<li>创建manager</li>
-</ol>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mgr :&#x3D; controllers.NewManager(…)</span><br></pre></td></tr></table></figure>
-
-<ol start="4">
-<li>创建reconciler</li>
-</ol>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">reconciler :&#x3D; reconcilerTest&#123;Client: mgr.GetClient()&#125;&#125;</span><br></pre></td></tr></table></figure>
-
-<ol start="5">
-<li>创建一个builder，并通过For/Watches方法进行配置，最后利用builder创建controller</li>
-</ol>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">builder :&#x3D; NewControllerManagedBy(mgr)</span><br><span class="line"></span><br><span class="line">builder.For()</span><br><span class="line"></span><br><span class="line">builder.Watches()</span><br><span class="line"></span><br><span class="line">builder.WithOptions(options).Build(&amp;reconciler)</span><br></pre></td></tr></table></figure>
-
-<ol start="6">
-<li>启动manager</li>
-</ol>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mgr.Start(controllers.SetupSignalHandler())</span><br></pre></td></tr></table></figure>
-
-<h3 id="数据对象概览"><a href="#数据对象概览" class="headerlink" title="数据对象概览"></a>数据对象概览</h3><p>controller-runtime包含以下比较重要的数据结构，manager、controller、builder</p>
-<ul>
-<li><p>manager是一个interface，controller manager是它的implement struct</p>
+<li><p>v1.12.4引入了等价类(equivClass)，它的核心思想是对于近似的pod，它的调度预选结果应该是一样的，如果遇到的pod，hash结果在map中，则忽略计算返回map记录的结果，否则再进行计算并更新map。不过这个特性属于feature-gates，并且默认不开启，在v1.15版本废除了。</p>
 </li>
-<li><p>controller manager包含多个runnable，runnable是个interface，controller实现了该interface。所以controller manager与controller是一对多的关系。</p>
+<li><p>v1.12.4相对于v1.7.9时间效率方面最大的提升是提前退出(short ciruted)。在这个版本里，对于一个node，预选函数的计算具有一定顺序，并且遇到不满足的函数直接返回，不再进行后续其他函数的计算。这样一来节约了大量没必要的计算时间。</p>
 </li>
-<li><p>builder构建controller，把controller manager和controller联系起来</p>
+</ol>
+<h3 id="问题解决"><a href="#问题解决" class="headerlink" title="问题解决"></a>问题解决</h3><p>回顾问题发生的背景，离线计算类业务大量pod创建，且调度缓慢，导致其他业务的pod无法创建。针对这个问题，从两方面解决：</p>
+<ol>
+<li><p>从调度器本身，提高调度性能，在v1.7.9版本的集群中引入short ciruted逻辑，遇到不满足的算法提前退出。线上更新后证明可以优化5倍的调度效率</p>
 </li>
-</ul>
-<p>controller包含两个方法</p>
-<ul>
-<li>Watch：利用Informer得到event（通过回调函数，具体细节可以查阅我的另一篇博文<a target="_blank" rel="noopener" href="https://chrisliu1995.github.io/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/">理解K8S Informer机制</a>），将其放入workqueue</li>
-<li>Start：从workqueue拿出event，将其转化为request，作为参数传入Reconcile()方法，用户重写函数内容实现自定义控制器逻辑。</li>
-</ul>
-<h3 id="代码逻辑梳理"><a href="#代码逻辑梳理" class="headerlink" title="代码逻辑梳理"></a>代码逻辑梳理</h3><p>在这里以controller两个核心func——Watch\Start为中心，梳理出两条线表示 controller-runtime 的调用链。</p>
-<p><img src="controller-runtime.png"></p>
-<p>其中，蓝色框为用户初始化的代码，如<code>使用方法</code>一节中所示。黄色框为用户需要重写的方法。</p>
-<p>K8S 原生的 kube-controller-manager 实现的控制器逻辑也是类似的，也使用了infromer与workerqueue。具体实现还未详细阅读，希望未来做总结分享。</p>
+<li><p>引入multi-schedueler。集群可以存在多个调度器，pod在创建的时候可以指定调度器的名称。对于离线计算型业务，它对创建延迟不敏感，把这类业务的pod用第二个调度器调度，这样就不会影响其他业务的正常调度。</p>
+</li>
+</ol>
 
     </div>
 
@@ -363,14 +363,11 @@
 
           <div class="post-nav">
             <div class="post-nav-item">
-                <a href="/2020/12/19/%E7%90%86%E8%A7%A3K8S-Informer%E6%9C%BA%E5%88%B6/" rel="prev" title="理解K8S Informer机制">
-                  <i class="fa fa-chevron-left"></i> 理解K8S Informer机制
+                <a href="/2021/04/13/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5%EF%BC%9A%E8%8A%82%E7%82%B9node%E6%97%A0%E6%B3%95%E5%8A%A0%E5%85%A5k8s%E9%9B%86%E7%BE%A4/" rel="prev" title="问题排查：节点node无法加入k8s集群">
+                  <i class="fa fa-chevron-left"></i> 问题排查：节点node无法加入k8s集群
                 </a>
             </div>
             <div class="post-nav-item">
-                <a href="/2021/04/13/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5%EF%BC%9A%E8%8A%82%E7%82%B9node%E6%97%A0%E6%B3%95%E5%8A%A0%E5%85%A5k8s%E9%9B%86%E7%BE%A4/" rel="next" title="问题排查：节点node无法加入k8s集群">
-                  问题排查：节点node无法加入k8s集群 <i class="fa fa-chevron-right"></i>
-                </a>
             </div>
           </div>
     </footer>
