@@ -34,7 +34,7 @@
 <meta property="og:image" content="http://yoursite.com/2021/05/31/k8s-kube-scheduler-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90/%E4%BC%98%E9%80%89%E7%AE%97%E6%B3%95.png">
 <meta property="og:image" content="http://yoursite.com/2021/05/31/k8s-kube-scheduler-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90/%E9%A2%84%E9%80%89%E7%AE%97%E6%B3%95.png">
 <meta property="article:published_time" content="2021-05-31T07:41:18.000Z">
-<meta property="article:modified_time" content="2021-05-31T09:50:14.411Z">
+<meta property="article:modified_time" content="2021-06-23T07:19:09.343Z">
 <meta property="article:author" content="Chris Liu">
 <meta property="article:tag" content="kubernetes">
 <meta name="twitter:card" content="summary">
@@ -269,10 +269,16 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">Posted on</span>
-      
 
-      <time title="Created: 2021-05-31 15:41:18 / Modified: 17:50:14" itemprop="dateCreated datePublished" datetime="2021-05-31T15:41:18+08:00">2021-05-31</time>
+      <time title="Created: 2021-05-31 15:41:18" itemprop="dateCreated datePublished" datetime="2021-05-31T15:41:18+08:00">2021-05-31</time>
     </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">Edited on</span>
+        <time title="Modified: 2021-06-23 15:19:09" itemprop="dateModified" datetime="2021-06-23T15:19:09+08:00">2021-06-23</time>
+      </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
         <i class="far fa-folder"></i>
@@ -296,7 +302,7 @@
         <p>本文分析了v1.7.9与v1.12.4版本k8s调度器在调度pod时的时间消耗，并给出了在共享集群的情景下调度慢问题的解决方案。</p>
 <a id="more"></a>
 
-<h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>目前公司线上存在着一部分共享集群，即一个k8s集群多个业务方使用。在某些计算型业务大量创删pod时，我们发现集群调度性能很慢，一分钟调度50个左右的pod，单个pod需要调度1s以上的时间。这影响了其他业务的对于pod的创建。观察线上所有集群的pod调度时间，发现此情况只出现在v1.7.9版本的k8s集群。v1.12.4的性能看上去要优于v1.7.9。由此契机分析一下两个版本的调度性能差异，同时提出解决该问题的优化方案。</p>
+<h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>目前公司线上存在着一部分共享集群，即一个k8s集群多个业务方使用，单集群节点数量上千台(1200~1600)。在某些计算型业务大量创删pod时，我们发现集群调度性能很慢，一分钟调度50个左右的pod，单个pod需要调度1s以上的时间。这影响了其他业务的对于pod的创建。观察线上所有集群的pod调度时间，发现此情况只出现在v1.7.9版本的k8s集群。v1.12.4的性能看上去要优于v1.7.9。由此契机分析一下两个版本的调度性能差异，同时提出解决该问题的优化方案。</p>
 <h3 id="查看调度日志"><a href="#查看调度日志" class="headerlink" title="查看调度日志"></a>查看调度日志</h3><p>单独说下日志，因为调度器的日志有一定迷惑性。</p>
 <p>k8s中pod是依次调度的，对于调度一个pod超过100ms的情况，会生成5行日志。日志内容大致如下:</p>
 <ul>
